@@ -26,6 +26,7 @@ CLI는 외부 경계와 실행 흐름을 담당한다.
 - commander로 `sync` 명령과 옵션을 제공한다.
 - dotenv를 통해 `.env`를 로드하고 CLI 옵션, 환경변수, 기본값 순으로 설정을 결정한다.
 - `X-Figma-Token` 헤더와 `fetch`를 사용해 Figma Variables API를 호출한다.
+- `--input <path>`가 있으면 API 대신 로컬 Figma Variables 응답 JSON을 읽는다.
 - snapshot을 읽고 결과물과 현재 snapshot을 저장한다.
 - diff 개수와 변경 경로를 출력하되 Figma token은 어떤 로그에도 출력하지 않는다.
 - 설정, API, 파일 오류를 이해하기 쉬운 메시지로 변환하고 exit code 1을 설정한다.
@@ -72,8 +73,8 @@ core의 공개 타입은 `TokenType`, `DesignToken`, `TokenDiff`다. 각 normali
 
 1. `.env`를 로드한다.
 2. CLI 옵션, 환경변수, 기본값 순으로 설정을 결정한다.
-3. Figma token과 file key를 필수값으로 검증하고 format을 제한한다.
-4. 격리된 API client에서 Variables 응답을 가져온다.
+3. format을 허용된 값으로 제한한다. `--input`이 없을 때만 Figma token과 file key를 필수값으로 검증한다.
+4. `--input <path>`가 있으면 해당 JSON 파일을 Figma Variables API 응답으로 읽는다. input이 없을 때만 격리된 API client에서 Variables 응답을 가져온다. `--input`, `--figma-token`, `--file-key`가 함께 있어도 input을 우선하며 API를 호출하지 않는다.
 5. core 정규화기로 `DesignToken[]`를 만든다.
 6. snapshot이 있으면 JSON을 읽고 최소 형태 검증 후 이전 토큰으로 사용한다. 없으면 빈 배열로 처리한다.
 7. diff를 계산하고 Added/Changed/Removed 개수와 경로 중심 상세를 출력한다. 사용자의 실제 Figma 인증 token은 절대 출력하지 않는다.
@@ -83,11 +84,16 @@ core의 공개 타입은 `TokenType`, `DesignToken`, `TokenDiff`다. 각 normali
 
 기본 설정은 output `./tokens.json`, format `tokens-json`, snapshot `.figma-token-pr/snapshot.json`, export name `theme`이다.
 
-`--dry-run`도 Figma API 호출, 정규화, snapshot 읽기, diff 계산과 터미널 출력까지 수행한다. 단지 output과 snapshot 파일 쓰기만 금지한다.
+`--dry-run`도 선택된 입력 소스에 따라 Figma API 호출 또는 input JSON 읽기, 정규화, snapshot 읽기, diff 계산과 터미널 출력까지 수행한다. 단지 output과 snapshot 파일 쓰기만 금지한다.
 
 ## API와 변경 용이성
 
-Figma endpoint는 `packages/cli/src/figma/fetchFigmaVariables.ts` 한 파일에 상수로 격리한다. 현재 Variables REST endpoint를 사용하되, Figma API 변경 시 이 파일만 수정하면 된다는 주석을 둔다. 응답 status가 성공이 아니면 status를 포함하되 응답 본문이나 token은 노출하지 않는 오류를 던진다. status가 429이면 재시도하지 않고 `Figma API rate limit에 도달했습니다. 잠시 후 다시 실행해 주세요.`라는 전용 오류를 제공한다.
+Figma endpoint는 `packages/cli/src/figma/fetchFigmaVariables.ts` 한 파일에 상수로 격리한다. 현재 Variables REST endpoint를 사용하되, Figma API 변경 시 이 파일만 수정하면 된다는 주석을 둔다. 응답 status가 성공이 아니면 status를 포함하되 응답 본문이나 token은 노출하지 않는 오류를 던진다.
+
+- status 403: `Figma Variables API 접근이 거부되었습니다. Figma plan, 해당 file 접근 권한, token scope(file_variables:read)를 확인해 주세요.`
+- status 429: `Figma API rate limit에 도달했습니다. 잠시 후 다시 실행해 주세요.`
+
+MVP에서는 자동 재시도를 하지 않는다. 공식 Figma 문서상 Variables scope와 endpoint 사용 가능 여부는 계정/조직 plan 및 권한의 영향을 받으므로, 403은 일반 API 오류와 분리한다.
 
 향후 GitHub Action은 core를 그대로 재사용하고 CLI 실행 환경만 감싸는 방식으로 추가할 수 있다.
 
@@ -104,7 +110,8 @@ Vitest로 다음 동작을 검증한다.
 - 입력 순서와 무관한 diff 안정 정렬
 - 단일 mode의 중첩 theme 생성
 - 여러 mode의 최상위 mode key 및 mode 이름 정규화
-- CLI 설정 우선순위, dry-run 파일 쓰기 금지, API 429 전용 오류
+- CLI 설정 우선순위, input의 API 우선 규칙, dry-run 파일 쓰기 금지
+- API 403 권한 안내와 429 rate limit 전용 오류
 
 구현은 테스트를 먼저 실패시키고 최소 구현으로 통과시키는 순서로 진행한다. 마지막에 `pnpm install`, `pnpm build`, `pnpm test`와 CLI help/dry-run 오류 경로를 실행해 TypeScript, 번들, 테스트, binary 진입점을 확인한다.
 
@@ -115,5 +122,16 @@ Vitest로 다음 동작을 검증한다.
 또한 다음 제약을 명시한다.
 
 - Figma Personal Access Token이 필요하며 파일 접근 권한이 없거나 Variables API를 사용할 수 없는 환경에서는 동기화가 실패할 수 있다.
+- Figma Variables REST API는 계정/조직 plan에 따라 사용할 수 없을 수 있다. API 사용 시 해당 file 접근 권한과 token의 `file_variables:read` scope를 확인해야 한다.
 - 서로 다른 collection이 같은 path와 mode를 만들어도 theme 출력에서는 collection을 자동으로 포함하거나 병합하지 않는다. 동일한 theme 출력 경로가 여러 토큰에서 생성되면 명확한 오류가 발생한다.
 - collection을 출력 경로에 포함하는 `--include-collection` 같은 기능은 향후 확장 범위이며 MVP에는 포함하지 않는다.
+
+실제 API 없이 개발, 테스트, 시연할 수 있도록 `fixtures/figma-variables.json` 예제와 다음 명령을 문서화한다.
+
+```bash
+figma-token-pr sync \
+  --input ./fixtures/figma-variables.json \
+  --output ./tokens.json \
+  --format tokens-json \
+  --dry-run
+```
