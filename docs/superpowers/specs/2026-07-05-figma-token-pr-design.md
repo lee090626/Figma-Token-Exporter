@@ -6,6 +6,8 @@
 
 사용자는 `npx figma-token-pr sync` 또는 workspace 개발 명령으로 Figma Variables를 가져오고, 이전 snapshot과 비교한 뒤 `tokens.json`이나 `theme.ts`를 생성할 수 있다.
 
+publish 대상 package 이름은 core가 `@figma-token-pr/core`, CLI가 `figma-token-pr`이다. CLI package는 `figma-token-pr` binary를 노출해 npm 배포 후 `npx figma-token-pr sync`와 일치시킨다.
+
 ## 패키지 경계
 
 ### `packages/core`
@@ -38,7 +40,9 @@ core의 공개 타입은 `TokenType`, `DesignToken`, `TokenDiff`다. 각 normali
 - Figma `COLOR`, `FLOAT`, `STRING`, `BOOLEAN` resolved type을 각각 `color`, `number`, `string`, `boolean`으로 매핑한다.
 - RGBA의 0~1 채널은 `#rrggbb`로 변환하며 alpha가 1 미만이면 `#rrggbbaa`를 사용한다.
 - collection의 mode ID를 mode name으로 해석한다.
-- 직접 표현할 수 없는 별칭이나 지원하지 않는 값은 `unknown`과 `null`로 보존한다.
+- `deletedButReferenced`가 `true`인 variable은 삭제된 토큰이 결과에 남지 않도록 output과 snapshot의 기반이 되는 normalized tokens에서 제외한다.
+- VariableAlias는 실행을 중단시키지 않고 `unknown`과 `null`로 보존한다. alias ID가 문자열이면 기존 설명을 유지하면서 `Alias to <variableId>` 정보를 description에 추가해 디버깅할 수 있게 한다.
+- 그 밖에 직접 표현할 수 없는 값은 `unknown`과 `null`로 보존한다.
 - 결과는 collection, mode, path 기준으로 결정적으로 정렬한다.
 
 ## Diff
@@ -51,8 +55,9 @@ core의 공개 타입은 `TokenType`, `DesignToken`, `TokenDiff`다. 각 normali
 
 `theme.ts`는 값만 포함하는 plain object를 `export const <exportName> = ... as const;` 형태로 출력한다.
 
-- 모든 토큰의 유효 mode 이름이 하나뿐이면 mode key를 생략하고 `theme.color.brand.primary`처럼 만든다.
-- 둘 이상의 mode 이름이 있으면 정규화한 mode key를 최상위에 두어 `theme.light.color.brand.primary`와 `theme.dark.color.brand.primary`처럼 만든다.
+- mode가 없거나 collection에서 해석되지 않으면 내부적으로 `default` mode로 간주한다.
+- 전체 normalized tokens에서 최종 mode set을 만든다. set이 `default` 하나뿐이거나 다른 단일 mode 하나뿐이면 mode key를 생략하고 `theme.color.brand.primary`처럼 만든다.
+- mode set에 둘 이상의 mode가 있으면 정규화한 mode key를 최상위에 둔다. `light`와 `dark`이면 `theme.light.color.brand.primary`와 `theme.dark.color.brand.primary`가 되고, `default`와 `dark`이면 `theme.default.color.brand.primary`와 `theme.dark.color.brand.primary`가 된다.
 - mode 이름은 기호와 공백을 단어 경계로 처리한 camelCase로 변환한다. `Light`는 `light`, `Dark`는 `dark`, `Light Mode`는 `lightMode`가 된다.
 - 비어 있거나 알 수 없는 mode는 `default`가 된다.
 - 숫자로 시작하거나 TypeScript 식별자에 안전하지 않은 key는 안전한 camelCase key로 보정한다.
@@ -78,9 +83,11 @@ core의 공개 타입은 `TokenType`, `DesignToken`, `TokenDiff`다. 각 normali
 
 기본 설정은 output `./tokens.json`, format `tokens-json`, snapshot `.figma-token-pr/snapshot.json`, export name `theme`이다.
 
+`--dry-run`도 Figma API 호출, 정규화, snapshot 읽기, diff 계산과 터미널 출력까지 수행한다. 단지 output과 snapshot 파일 쓰기만 금지한다.
+
 ## API와 변경 용이성
 
-Figma endpoint는 `packages/cli/src/figma/fetchFigmaVariables.ts` 한 파일에 상수로 격리한다. 현재 Variables REST endpoint를 사용하되, Figma API 변경 시 이 파일만 수정하면 된다는 주석을 둔다. 응답 status가 성공이 아니면 status를 포함하되 응답 본문이나 token은 노출하지 않는 오류를 던진다.
+Figma endpoint는 `packages/cli/src/figma/fetchFigmaVariables.ts` 한 파일에 상수로 격리한다. 현재 Variables REST endpoint를 사용하되, Figma API 변경 시 이 파일만 수정하면 된다는 주석을 둔다. 응답 status가 성공이 아니면 status를 포함하되 응답 본문이나 token은 노출하지 않는 오류를 던진다. status가 429이면 재시도하지 않고 `Figma API rate limit에 도달했습니다. 잠시 후 다시 실행해 주세요.`라는 전용 오류를 제공한다.
 
 향후 GitHub Action은 core를 그대로 재사용하고 CLI 실행 환경만 감싸는 방식으로 추가할 수 있다.
 
@@ -91,13 +98,22 @@ Vitest로 다음 동작을 검증한다.
 - variable name의 slash path 변환
 - RGBA의 hex 변환과 alpha 처리
 - number, string, boolean 및 방어적 입력 처리
+- VariableAlias의 unknown/null 변환과 alias ID 보존
+- `deletedButReferenced` variable 제외
 - added, removed, changed diff 감지
 - 입력 순서와 무관한 diff 안정 정렬
 - 단일 mode의 중첩 theme 생성
 - 여러 mode의 최상위 mode key 및 mode 이름 정규화
+- CLI 설정 우선순위, dry-run 파일 쓰기 금지, API 429 전용 오류
 
 구현은 테스트를 먼저 실패시키고 최소 구현으로 통과시키는 순서로 진행한다. 마지막에 `pnpm install`, `pnpm build`, `pnpm test`와 CLI help/dry-run 오류 경로를 실행해 TypeScript, 번들, 테스트, binary 진입점을 확인한다.
 
 ## 문서
 
 한국어 README에는 프로젝트 목적, 제외 범위, 설치와 build, `.env` 설정, CLI와 dry-run 예시, 두 출력 형식 예시, 향후 GitHub Action/PR 자동 생성/Figma Plugin/포맷 커스터마이징 계획을 포함한다.
+
+또한 다음 제약을 명시한다.
+
+- Figma Personal Access Token이 필요하며 파일 접근 권한이 없거나 Variables API를 사용할 수 없는 환경에서는 동기화가 실패할 수 있다.
+- 서로 다른 collection이 같은 path와 mode를 만들어도 theme 출력에서는 collection을 자동으로 포함하거나 병합하지 않는다. 동일한 theme 출력 경로가 여러 토큰에서 생성되면 명확한 오류가 발생한다.
+- collection을 출력 경로에 포함하는 `--include-collection` 같은 기능은 향후 확장 범위이며 MVP에는 포함하지 않는다.
