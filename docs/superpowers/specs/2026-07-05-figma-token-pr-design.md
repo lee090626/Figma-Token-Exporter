@@ -6,7 +6,7 @@
 
 사용자는 `npx figma-token-pr sync` 또는 workspace 개발 명령으로 Figma Variables를 가져오고, 이전 snapshot과 비교한 뒤 `tokens.json`이나 `theme.ts`를 생성할 수 있다.
 
-publish 대상 package 이름은 core가 `@figma-token-pr/core`, CLI가 `figma-token-pr`이다. CLI package는 `figma-token-pr` binary를 노출해 npm 배포 후 `npx figma-token-pr sync`와 일치시킨다.
+root workspace package 이름은 publish 대상과 충돌하지 않는 private package `figma-token-pr-monorepo`다. publish 대상 package 이름은 core가 `@figma-token-pr/core`, CLI가 `figma-token-pr`이다. CLI package는 `figma-token-pr` binary를 노출해 npm 배포 후 `npx figma-token-pr sync`와 일치시킨다.
 
 ## 패키지 경계
 
@@ -56,6 +56,8 @@ core의 공개 타입은 `TokenType`, `DesignToken`, `TokenDiff`다. 각 normali
 
 `theme.ts`는 값만 포함하는 plain object를 `export const <exportName> = ... as const;` 형태로 출력한다.
 
+normalized token의 value가 `null`이면 `theme.ts`에서 제외한다. 따라서 해석되지 않은 VariableAlias와 지원하지 않는 값은 executable theme에 들어가지 않지만, `tokens.json`과 snapshot에는 `unknown/null` 상태로 보존된다.
+
 - mode가 없거나 collection에서 해석되지 않으면 내부적으로 `default` mode로 간주한다.
 - 전체 normalized tokens에서 최종 mode set을 만든다. set이 `default` 하나뿐이거나 다른 단일 mode 하나뿐이면 mode key를 생략하고 `theme.color.brand.primary`처럼 만든다.
 - mode set에 둘 이상의 mode가 있으면 정규화한 mode key를 최상위에 둔다. `light`와 `dark`이면 `theme.light.color.brand.primary`와 `theme.dark.color.brand.primary`가 되고, `default`와 `dark`이면 `theme.default.color.brand.primary`와 `theme.dark.color.brand.primary`가 된다.
@@ -97,6 +99,12 @@ MVP에서는 자동 재시도를 하지 않는다. 공식 Figma 문서상 Variab
 
 향후 GitHub Action은 core를 그대로 재사용하고 CLI 실행 환경만 감싸는 방식으로 추가할 수 있다.
 
+## 패키징과 binary
+
+CLI entry인 `packages/cli/src/index.ts` 첫 줄에는 `#!/usr/bin/env node` shebang을 둔다. tsup의 banner 설정으로 build된 `dist/index.js`에도 shebang이 정확히 하나 유지되게 하고, CLI package의 `bin.figma-token-pr`은 `dist/index.js`를 가리킨다. build 후 파일 실행 권한과 Node 실행 가능 여부를 확인한다.
+
+`.env`는 `.gitignore`에 포함해 절대 커밋하지 않는다. 필요한 key와 비어 있는 예시값만 담은 `.env.example`을 추적한다.
+
 ## 테스트와 검증
 
 Vitest로 다음 동작을 검증한다.
@@ -110,10 +118,11 @@ Vitest로 다음 동작을 검증한다.
 - 입력 순서와 무관한 diff 안정 정렬
 - 단일 mode의 중첩 theme 생성
 - 여러 mode의 최상위 mode key 및 mode 이름 정규화
+- `theme.ts`의 null token 제외와 `tokens.json`/snapshot 보존
 - CLI 설정 우선순위, input의 API 우선 규칙, dry-run 파일 쓰기 금지
 - API 403 권한 안내와 429 rate limit 전용 오류
 
-구현은 테스트를 먼저 실패시키고 최소 구현으로 통과시키는 순서로 진행한다. 마지막에 `pnpm install`, `pnpm build`, `pnpm test`와 CLI help/dry-run 오류 경로를 실행해 TypeScript, 번들, 테스트, binary 진입점을 확인한다.
+구현은 테스트를 먼저 실패시키고 최소 구현으로 통과시키는 순서로 진행한다. 마지막에 `pnpm install`, `pnpm build`, `pnpm test`와 CLI help/dry-run 경로를 실행해 TypeScript, 번들, 테스트, binary 진입점을 확인한다. 전역 `figma-token-pr --help`를 직접 실행할 수 없는 환경이면 `pnpm --filter figma-token-pr exec figma-token-pr --help`, workspace dev 명령, 또는 `node packages/cli/dist/index.js --help`로 동등하게 검증한다.
 
 ## 문서
 
