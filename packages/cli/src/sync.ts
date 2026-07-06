@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { diffTokens, isDesignTokenArray, normalizeFigmaVariables, renderTheme, renderTokensJson, type DesignToken } from "@figma-token-pr/core";
+import { diffTokens, isDesignTokenArray, normalizeFigmaVariables, renderTheme, renderTokensJson, type DesignToken } from "@figma-token/core";
 import { fetchFigmaVariables } from "./figma/fetchFigmaVariables.js";
 
 export interface SyncOptions {

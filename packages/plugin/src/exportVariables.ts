@@ -1,4 +1,4 @@
-import { normalizeFigmaVariables, type DesignToken } from "@figma-token-pr/core";
+import { normalizeFigmaVariables, type DesignToken } from "@figma-token/core";
 
 export interface PluginCollection {
   id: string;

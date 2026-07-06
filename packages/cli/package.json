@@ -1,14 +1,14 @@
 {
-  "name": "figma-token-pr",
+  "name": "figma-token",
   "version": "0.1.0",
   "type": "module",
-  "bin": { "figma-token-pr": "dist/index.js" },
+  "bin": { "figma-token": "dist/index.js" },
   "scripts": {
     "build": "tsup",
     "test": "vitest run"
   },
   "dependencies": {
-    "@figma-token-pr/core": "workspace:*",
+    "@figma-token/core": "workspace:*",
     "commander": "^14.0.0",
     "dotenv": "^17.0.0"
   },

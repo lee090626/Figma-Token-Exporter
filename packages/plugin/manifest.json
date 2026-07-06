@@ -1,6 +1,6 @@
 {
-  "name": "Figma Token PR Exporter",
-  "id": "figma-token-pr-exporter",
+  "name": "Figma Token Exporter",
+  "id": "figma-token-exporter",
   "api": "1.0.0",
   "main": "dist/code.global.js",
   "ui": "src/ui.html",

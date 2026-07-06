@@ -20,7 +20,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@figma-token-pr/core':
+      '@figma-token/core':
         specifier: workspace:*
         version: link:../core
       commander:
@@ -42,7 +42,7 @@ importers:
 
   packages/plugin:
     dependencies:
-      '@figma-token-pr/core':
+      '@figma-token/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

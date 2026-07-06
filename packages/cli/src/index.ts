@@ -8,11 +8,11 @@ const format = (value: string) => {
   return value;
 };
 
-const program = new Command().name("figma-token-pr").description("Figma Variables를 로컬 디자인 토큰으로 동기화합니다.");
+const program = new Command().name("figma-token").description("Figma Variables를 로컬 디자인 토큰으로 동기화합니다.");
 program.command("sync")
   .option("--input <path>", "로컬 Figma Variables JSON")
   .option("--output <path>", "출력 파일", "./tokens.json")
-  .option("--snapshot <path>", "snapshot 파일", ".figma-token-pr/snapshot.json")
+  .option("--snapshot <path>", "snapshot 파일", ".figma-token/snapshot.json")
   .option("--format <format>", "tokens-json 또는 theme-ts", format, "tokens-json")
   .option("--export-name <name>", "theme.ts export 이름", "theme")
   .option("--figma-token <token>", "Figma token")

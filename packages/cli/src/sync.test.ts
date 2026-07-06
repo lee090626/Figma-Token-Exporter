@@ -6,7 +6,7 @@ import { sync } from "./sync.js";
 
 describe("sync", () => {
   it("uses input and dry-run writes no files", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "figma-token-pr-"));
+    const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
     const input = join(dir, "input.json");
     const output = join(dir, "tokens.json");
     await writeFile(input, JSON.stringify({ variables: {} }));
@@ -15,7 +15,7 @@ describe("sync", () => {
   });
 
   it("writes output and snapshot", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "figma-token-pr-"));
+    const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
     const input = join(dir, "input.json");
     const output = join(dir, "tokens.json");
     const snapshot = join(dir, ".state/snapshot.json");
@@ -26,7 +26,7 @@ describe("sync", () => {
   });
 
   it("accepts normalized tokens exported by the plugin", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "figma-token-pr-"));
+    const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
     const input = join(dir, "figma-tokens.json");
     const output = join(dir, "tokens.json");
     await writeFile(input, JSON.stringify([{ name: "size/base", path: ["size", "base"], type: "number", value: 8 }]));

@@ -1,4 +1,4 @@
-# figma-token-pr
+# figma-token
 
 Figma Plugin으로 현재 파일의 Variables를 내보내고, CLI로 `tokens.json` 또는 `theme.ts`를 생성합니다. Enterprise 사용자는 기존 REST API 방식도 사용할 수 있습니다.
 
@@ -28,8 +28,8 @@ node packages/cli/dist/index.js sync --input ~/Downloads/figma-tokens.json --for
 `.env.example`을 `.env`로 복사하고 `FIGMA_TOKEN`, `FIGMA_FILE_KEY`를 설정합니다. CLI 옵션은 환경변수보다 우선합니다.
 
 ```bash
-npx figma-token-pr sync --format tokens-json --output ./tokens.json
-npx figma-token-pr sync --format theme-ts --output ./theme.ts --export-name theme
+npx figma-token sync --format tokens-json --output ./tokens.json
+npx figma-token sync --format theme-ts --output ./theme.ts --export-name theme
 ```
 
 `tokens-json`은 normalized token 배열을, `theme-ts`는 값만 중첩한 `export const theme = ... as const`를 만듭니다. `--dry-run`은 입력과 snapshot을 읽고 diff를 출력하지만 파일은 쓰지 않습니다.

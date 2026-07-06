@@ -1,5 +1,5 @@
 {
-  "name": "@figma-token-pr/plugin",
+  "name": "@figma-token/plugin",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@figma-token-pr/core": "workspace:*"
+    "@figma-token/core": "workspace:*"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.117.0",
