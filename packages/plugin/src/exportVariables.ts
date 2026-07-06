@@ -1,4 +1,4 @@
-import { normalizeFigmaVariables, type DesignToken } from "@figma-token/core";
+import { normalizeFigmaVariables, renderTheme, renderTokensJson, type DesignToken } from "@figma-token/core";
 
 export interface PluginCollection {
   id: string;
@@ -20,4 +20,15 @@ export function exportVariables(collections: PluginCollection[], variables: Plug
     variableCollections: Object.fromEntries(collections.map((collection) => [collection.id, collection])),
     variables: Object.fromEntries(variables.map((variable) => [variable.id, variable]))
   });
+}
+
+export function createExports(collections: PluginCollection[], variables: PluginVariable[]) {
+  const tokens = exportVariables(collections, variables);
+  return {
+    count: tokens.length,
+    files: {
+      "tokens.json": renderTokensJson(tokens),
+      "theme.ts": renderTheme(tokens)
+    }
+  };
 }

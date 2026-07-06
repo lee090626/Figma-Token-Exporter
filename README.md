@@ -1,6 +1,6 @@
 # figma-token
 
-Figma Plugin으로 현재 파일의 Variables를 내보내고, CLI로 `tokens.json` 또는 `theme.ts`를 생성합니다. Enterprise 사용자는 기존 REST API 방식도 사용할 수 있습니다.
+Figma Plugin에서 현재 파일의 Variables를 읽어 `tokens.json` 또는 `theme.ts`로 바로 다운로드합니다. CLI와 Enterprise REST API는 자동화가 필요한 개발자를 위한 선택 기능입니다.
 
 ## 설치와 실행
 
@@ -10,17 +10,21 @@ pnpm build
 node packages/cli/dist/index.js sync --input fixtures/figma-variables.json --dry-run
 ```
 
-## 일반 사용자: Plugin + CLI
+## 일반 사용자: Plugin
 
 1. `pnpm build`를 실행합니다.
 2. Figma 데스크톱 앱에서 `Plugins > Development > Import plugin from manifest...`를 선택합니다.
 3. `packages/plugin/manifest.json`을 선택하고 플러그인을 실행합니다.
-4. `figma-tokens.json`을 다운로드합니다.
-5. CLI로 변환합니다.
+4. `tokens.json` 또는 `theme.ts` 다운로드 버튼을 누릅니다.
+
+터미널이나 Personal Access Token은 필요하지 않습니다.
+
+## 개발자 자동화: CLI
+
+플러그인에서 받은 `tokens.json`을 diff와 snapshot 관리에 다시 사용할 수 있습니다.
 
 ```bash
-node packages/cli/dist/index.js sync --input ~/Downloads/figma-tokens.json
-node packages/cli/dist/index.js sync --input ~/Downloads/figma-tokens.json --format theme-ts --output theme.ts
+node packages/cli/dist/index.js sync --input ~/Downloads/tokens.json
 ```
 
 ## Enterprise 사용자: REST API

@@ -1,20 +1,20 @@
 /// <reference types="@figma/plugin-typings" />
 
-import { exportVariables } from "./exportVariables.js";
+import { createExports } from "./exportVariables.js";
 
-figma.showUI(__html__, { width: 360, height: 180, themeColors: true });
+figma.showUI(__html__, { width: 360, height: 210, themeColors: true });
 
 async function sendVariables() {
   const [collections, variables] = await Promise.all([
     figma.variables.getLocalVariableCollectionsAsync(),
     figma.variables.getLocalVariablesAsync()
   ]);
-  const tokens = exportVariables(
+  const result = createExports(
     collections.map(({ id, name, modes }) => ({ id, name, modes })),
     variables.map(({ id, name, description, variableCollectionId, resolvedType, valuesByMode }) =>
       ({ id, name, description, variableCollectionId, resolvedType, valuesByMode }))
   );
-  figma.ui.postMessage({ type: "tokens", tokens });
+  figma.ui.postMessage({ type: "exports", ...result });
 }
 
 sendVariables().catch((error: unknown) => {

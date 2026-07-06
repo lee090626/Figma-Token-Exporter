@@ -1,26 +1,31 @@
 <!doctype html>
 <html>
 <body style="font: 13px Inter, sans-serif; padding: 16px; color: var(--figma-color-text); background: var(--figma-color-bg)">
+  <h2 style="font-size: 16px; margin: 0 0 8px">Export design tokens</h2>
   <p id="status">현재 파일의 Variables를 읽고 있습니다.</p>
-  <button id="download" disabled>figma-tokens.json 다운로드</button>
+  <div style="display: grid; gap: 8px">
+    <button data-file="tokens.json" disabled>tokens.json 다운로드</button>
+    <button data-file="theme.ts" disabled>theme.ts 다운로드</button>
+  </div>
   <script>
-    let tokens;
+    let files;
     onmessage = ({ data }) => {
       const message = data.pluginMessage;
       if (message.type === "error") document.getElementById("status").textContent = `오류: ${message.message}`;
-      if (message.type === "tokens") {
-        tokens = message.tokens;
-        document.getElementById("status").textContent = `${tokens.length}개 토큰을 읽었습니다.`;
-        document.getElementById("download").disabled = false;
+      if (message.type === "exports") {
+        files = message.files;
+        document.getElementById("status").textContent = `${message.count}개 토큰을 읽었습니다.`;
+        document.querySelectorAll("button").forEach((button) => button.disabled = false);
       }
     };
-    document.getElementById("download").onclick = () => {
+    document.querySelectorAll("button").forEach((button) => button.onclick = () => {
+      const filename = button.dataset.file;
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(new Blob([JSON.stringify(tokens, null, 2) + "\n"], { type: "application/json" }));
-      link.download = "figma-tokens.json";
+      link.href = URL.createObjectURL(new Blob([files[filename]], { type: "text/plain" }));
+      link.download = filename;
       link.click();
       URL.revokeObjectURL(link.href);
-    };
+    });
   </script>
 </body>
 </html>
