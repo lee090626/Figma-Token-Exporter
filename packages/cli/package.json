@@ -1,0 +1,16 @@
+{
+  "name": "figma-token-pr",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "figma-token-pr": "dist/index.js" },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@figma-token-pr/core": "workspace:*",
+    "commander": "^14.0.0",
+    "dotenv": "^17.0.0"
+  },
+  "devDependencies": { "tsup": "^8.5.0" }
+}

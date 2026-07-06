@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "variableCollections": {
+      "collection": {
+        "name": "Brand",
+        "modes": [{ "modeId": "light", "name": "Light" }]
+      }
+    },
+    "variables": {
+      "primary": {
+        "name": "color/brand/primary",
+        "variableCollectionId": "collection",
+        "resolvedType": "COLOR",
+        "valuesByMode": { "light": { "r": 0.2, "g": 0.4, "b": 1, "a": 1 } }
+      }
+    }
+  }
+}
