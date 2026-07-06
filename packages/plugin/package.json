@@ -1,0 +1,16 @@
+{
+  "name": "@figma-token-pr/plugin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@figma-token-pr/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.117.0",
+    "tsup": "^8.5.0"
+  }
+}

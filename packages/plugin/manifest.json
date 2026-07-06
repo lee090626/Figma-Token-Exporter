@@ -1,0 +1,9 @@
+{
+  "name": "Figma Token PR Exporter",
+  "id": "figma-token-pr-exporter",
+  "api": "1.0.0",
+  "main": "dist/code.global.js",
+  "ui": "src/ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page"
+}

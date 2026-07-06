@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<body style="font: 13px Inter, sans-serif; padding: 16px; color: var(--figma-color-text); background: var(--figma-color-bg)">
+  <p id="status">현재 파일의 Variables를 읽고 있습니다.</p>
+  <button id="download" disabled>figma-tokens.json 다운로드</button>
+  <script>
+    let tokens;
+    onmessage = ({ data }) => {
+      const message = data.pluginMessage;
+      if (message.type === "error") document.getElementById("status").textContent = `오류: ${message.message}`;
+      if (message.type === "tokens") {
+        tokens = message.tokens;
+        document.getElementById("status").textContent = `${tokens.length}개 토큰을 읽었습니다.`;
+        document.getElementById("download").disabled = false;
+      }
+    };
+    document.getElementById("download").onclick = () => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([JSON.stringify(tokens, null, 2) + "\n"], { type: "application/json" }));
+      link.download = "figma-tokens.json";
+      link.click();
+      URL.revokeObjectURL(link.href);
+    };
+  </script>
+</body>
+</html>

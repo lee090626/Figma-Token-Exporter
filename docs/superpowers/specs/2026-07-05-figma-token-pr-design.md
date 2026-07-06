@@ -2,7 +2,9 @@
 
 ## 목표와 범위
 
-`figma-token-pr`은 별도 서버 없이 Figma Variables를 로컬 디자인 토큰 파일로 동기화하는 Node.js 20+ CLI다. 이번 MVP는 pnpm workspace의 `packages/core`와 `packages/cli`만 구현한다. 웹 서비스, 백엔드 서버, Figma 플러그인, GitHub Action, PR 자동 생성은 범위에서 제외한다.
+`figma-token-pr`은 별도 서버 없이 Figma Variables를 로컬 디자인 토큰 파일로 동기화한다. 일반 사용자는 `packages/plugin`에서 현재 Figma 파일의 Variables를 JSON으로 내보낸 뒤 CLI에 전달한다. Enterprise 사용자는 기존 REST API 경로도 사용할 수 있다. 웹 서비스, 백엔드 서버, GitHub Action, PR 자동 생성은 범위에서 제외한다.
+
+> 2026-07-07 변경: Variables REST API가 Enterprise 전용임을 확인해 일반 사용자용 Plugin export 경로를 MVP에 추가했다.
 
 사용자는 `npx figma-token-pr sync` 또는 workspace 개발 명령으로 Figma Variables를 가져오고, 이전 snapshot과 비교한 뒤 `tokens.json`이나 `theme.ts`를 생성할 수 있다.
 
