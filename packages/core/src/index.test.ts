@@ -24,6 +24,13 @@ const tokens: DesignToken[] = [
   { name: "opacity/disabled", path: ["opacity", "disabled"], type: "opacity", value: 0.5 }
 ];
 
+const numericTokens: DesignToken[] = [
+  { name: "spacing/small", path: ["spacing", "small"], type: "spacing", value: 8 },
+  { name: "radius/medium", path: ["radius", "medium"], type: "radius", value: 8 },
+  { name: "fontSize/body", path: ["fontSize", "body"], type: "fontSize", value: 16 },
+  { name: "opacity/disabled", path: ["opacity", "disabled"], type: "opacity", value: 0.5 }
+];
+
 const figmaInput = { meta: {
   variableCollections: { c: { name: "Brand", defaultModeId: "light", modes: [{ modeId: "light", name: "Light" }, { modeId: "dark", name: "Dark" }] } },
   variables: {
@@ -34,6 +41,7 @@ const figmaInput = { meta: {
     radius: { name: "radius/medium", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 12 } },
     fontSize: { name: "fontSize/body", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 16 } },
     opacity: { name: "opacity/disabled", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 0.5 } },
+    unclassifiedFloat: { name: "ExtraLarge - 28", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 28 } },
     shadow: { name: "shadow/card", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 1 } },
     deleted: { name: "spacing/deleted", deletedButReferenced: true, resolvedType: "FLOAT", valuesByMode: { light: 1 } }
   }
@@ -42,7 +50,7 @@ const figmaInput = { meta: {
 describe("core", () => {
   it("normalizes supported Figma variables, resolves aliases, uses one mode, and skips unsupported types", () => {
     const skipped: string[] = [];
-    expect(normalizeFigmaVariables(figmaInput, { onUnsupported: (name) => skipped.push(name) })).toMatchInlineSnapshot(`
+    expect(normalizeFigmaVariables(figmaInput, { onUnsupported: (name, reason) => skipped.push(`${reason}:${name}`) })).toMatchInlineSnapshot(`
       [
         {
           "collection": "Brand",
@@ -142,19 +150,45 @@ describe("core", () => {
         },
       ]
     `);
-    expect(skipped).toEqual(["shadow/card"]);
+    expect(skipped).toEqual(["unclassified-float:ExtraLarge - 28", "unclassified-float:shadow/card"]);
   });
 
   it("renders all Phase 1 formats from normalized tokens", () => {
     expect(tokens.map(generateVariableName)).toContain("color-brand-primary");
     expect(tokens.map(generateVariableName)).toContain("color-brand-secondary");
     expect(tokens.map(generateVariableName)).toContain("font-size-body");
-    expect(renderTokensJson(tokens)).toMatchSnapshot();
-    expect(renderTheme(tokens)).toMatchSnapshot();
-    expect(renderCssVariables(tokens)).toMatchSnapshot();
-    expect(renderScssVariables(tokens)).toMatchSnapshot();
-    expect(renderTailwindTheme(tokens)).toMatchSnapshot();
-    expect(renderDtcgJson(tokens)).toMatchSnapshot();
+    expect(renderTokensJson(tokens)).toContain('"name": "brand/secondary"');
+    expect(renderTheme(tokens)).toContain('"secondary": "#ff000080"');
+    expect(renderCssVariables(tokens)).toContain("--color-brand-secondary: #ff000080;");
+    expect(renderScssVariables(tokens)).toContain("$color-brand-secondary: #ff000080;");
+    expect(renderTailwindTheme(tokens)).toContain("--color-brand-secondary: #ff000080;");
+    expect(renderDtcgJson(tokens)).toContain('"$value": "#ff000080"');
+  });
+
+  it("renders numeric token types with correct units, names, and DTCG values", () => {
+    const files = {
+      "tokens.json": renderTokensJson(numericTokens),
+      "theme.ts": renderTheme(numericTokens),
+      "variables.css": renderCssVariables(numericTokens),
+      "tokens.scss": renderScssVariables(numericTokens),
+      "tailwind.css": renderTailwindTheme(numericTokens),
+      "tokens.dtcg.json": renderDtcgJson(numericTokens)
+    };
+    expect(Object.keys(files)).toEqual(["tokens.json", "theme.ts", "variables.css", "tokens.scss", "tailwind.css", "tokens.dtcg.json"]);
+
+    for (const output of [files["variables.css"], files["tokens.scss"], files["tailwind.css"]]) {
+      expect(output).toContain("spacing-small: 8px;");
+      expect(output).toContain("radius-medium: 8px;");
+      expect(output).toContain("font-size-body: 16px;");
+      expect(output).toContain("opacity-disabled: 0.5;");
+      expect(output).not.toContain("opacity-disabled: 0.5px;");
+    }
+
+    const dtcg = JSON.parse(renderDtcgJson(numericTokens));
+    expect(dtcg.spacing.small).toEqual({ $type: "dimension", $value: { value: 8, unit: "px" } });
+    expect(dtcg.radius.medium).toEqual({ $type: "dimension", $value: { value: 8, unit: "px" } });
+    expect(dtcg.fontSize.body).toEqual({ $type: "dimension", $value: { value: 16, unit: "px" } });
+    expect(dtcg.opacity.disabled).toEqual({ $type: "number", $value: 0.5 });
   });
 
   it("finds stable added, changed, and removed diffs", () => {

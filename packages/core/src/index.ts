@@ -24,7 +24,7 @@ export interface TokenDiff {
 
 export interface NormalizeOptions {
   modeId?: string;
-  onUnsupported?: (name: string) => void;
+  onUnsupported?: (name: string, reason: "unclassified-float" | "unsupported-type") => void;
 }
 
 type RecordValue = Record<string, unknown>;
@@ -105,7 +105,7 @@ export function normalizeFigmaVariables(input: unknown, options: NormalizeOption
     if (!isRecord(variable) || typeof variable.name !== "string" || variable.deletedButReferenced === true) continue;
     const type = tokenTypeFromName(variable.name, variable.resolvedType);
     if (!type) {
-      options.onUnsupported?.(variable.name);
+      options.onUnsupported?.(variable.name, variable.resolvedType === "FLOAT" ? "unclassified-float" : "unsupported-type");
       continue;
     }
     const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};

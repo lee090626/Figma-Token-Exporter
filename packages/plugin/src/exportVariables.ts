@@ -25,17 +25,25 @@ export interface PluginVariable {
   valuesByMode: Record<string, unknown>;
 }
 
-export function exportVariables(collections: PluginCollection[], variables: PluginVariable[]): DesignToken[] {
+const skippedMessage = (name: string, reason: "unclassified-float" | "unsupported-type") =>
+  reason === "unclassified-float" ? `unclassified FLOAT variable skipped: ${name}` : `unsupported type skipped: ${name}`;
+
+export function exportVariables(collections: PluginCollection[], variables: PluginVariable[], onWarning = console.warn): DesignToken[] {
   return normalizeFigmaVariables({
     variableCollections: Object.fromEntries(collections.map((collection) => [collection.id, collection])),
     variables: Object.fromEntries(variables.map((variable) => [variable.id, variable]))
-  }, { onUnsupported: (name) => console.warn(`unsupported type skipped: ${name}`) });
+  }, { onUnsupported: (name, reason) => onWarning(skippedMessage(name, reason)) });
 }
 
 export function createExports(collections: PluginCollection[], variables: PluginVariable[]) {
-  const tokens = exportVariables(collections, variables);
+  const warnings: string[] = [];
+  const tokens = exportVariables(collections, variables, (message) => {
+    warnings.push(message);
+    console.warn(message);
+  });
   return {
     count: tokens.length,
+    warnings,
     files: {
       "tokens.json": renderTokensJson(tokens),
       "theme.ts": renderTheme(tokens),
