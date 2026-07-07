@@ -5,3 +5,5 @@ dist/
 .figma-token/
 .figma-token-pr/
 tokens.json
+**/__snapshots__/
+*.snap
