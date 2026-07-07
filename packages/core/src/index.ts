@@ -174,6 +174,7 @@ const formatValue = (token: DesignToken) => {
   if (dimensionTypes.includes(token.type)) return `${token.value}px`;
   return String(token.value);
 };
+const formatThemeValue = (token: DesignToken) => token.type === "opacity" ? token.value : formatValue(token);
 
 function renderCssLike(tokens: DesignToken[], nameFor: (token: DesignToken) => string, wrap?: [string, string]) {
   const lines = tokens.map((token) => `${wrap ? "  " : ""}${nameFor(token)}: ${formatValue(token)};`);
@@ -221,7 +222,7 @@ export function renderTheme(tokens: DesignToken[], exportName = "theme"): string
     path.forEach((part, index) => {
       if (index === path.length - 1) {
         if (part in cursor) throw new Error(`Duplicate theme path: ${path.join(".")}`);
-        cursor[part] = formatValue(token);
+        cursor[part] = formatThemeValue(token);
       } else {
         if (part in cursor && !isRecord(cursor[part])) throw new Error(`Duplicate theme path: ${path.join(".")}`);
         cursor = cursor[part] as RecordValue ?? (cursor[part] = {} as RecordValue);

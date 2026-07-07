@@ -183,6 +183,11 @@ describe("core", () => {
       expect(output).toContain("opacity-disabled: 0.5;");
       expect(output).not.toContain("opacity-disabled: 0.5px;");
     }
+    expect(files["theme.ts"]).toContain('"small": "8px"');
+    expect(files["theme.ts"]).toContain('"medium": "8px"');
+    expect(files["theme.ts"]).toContain('"body": "16px"');
+    expect(files["theme.ts"]).toContain('"disabled": 0.5');
+    expect(files["theme.ts"]).not.toContain('"disabled": "0.5"');
 
     const dtcg = JSON.parse(renderDtcgJson(numericTokens));
     expect(dtcg.spacing.small).toEqual({ $type: "dimension", $value: { value: 8, unit: "px" } });
