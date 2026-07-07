@@ -1,10 +1,17 @@
-export type TokenType = "color" | "number" | "string" | "boolean" | "unknown";
+export type TokenType = "color" | "spacing" | "radius" | "fontSize" | "opacity";
+
+export interface ColorValue {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
 
 export interface DesignToken {
   name: string;
   path: string[];
   type: TokenType;
-  value: string | number | boolean | null;
+  value: number | ColorValue;
   collection?: string;
   mode?: string;
   description?: string;
@@ -15,38 +22,79 @@ export interface TokenDiff {
   token: DesignToken;
 }
 
+export interface NormalizeOptions {
+  modeId?: string;
+  onUnsupported?: (name: string) => void;
+}
+
+type RecordValue = Record<string, unknown>;
+const supportedTypes: TokenType[] = ["color", "spacing", "radius", "fontSize", "opacity"];
+const dimensionTypes: TokenType[] = ["spacing", "radius", "fontSize"];
+
+const isRecord = (value: unknown): value is RecordValue =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isColorValue = (value: unknown): value is ColorValue =>
+  isRecord(value) &&
+  ["r", "g", "b", "a"].every((key) => typeof value[key] === "number");
+
 export function isDesignTokenArray(value: unknown): value is DesignToken[] {
-  const types: TokenType[] = ["color", "number", "string", "boolean", "unknown"];
   return Array.isArray(value) && value.every((token) =>
     isRecord(token) &&
     typeof token.name === "string" &&
     Array.isArray(token.path) && token.path.every((part) => typeof part === "string") &&
-    types.includes(token.type as TokenType) &&
-    (token.value === null || ["string", "number", "boolean"].includes(typeof token.value))
+    supportedTypes.includes(token.type as TokenType) &&
+    (typeof token.value === "number" || isColorValue(token.value))
   );
 }
 
-type RecordValue = Record<string, unknown>;
-const isRecord = (value: unknown): value is RecordValue =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const tokenTypeFromName = (name: string, resolvedType: unknown): TokenType | undefined => {
+  const first = name.split("/").filter(Boolean)[0]?.toLowerCase().replace(/[-_\s]/g, "");
+  if (resolvedType === "COLOR" && first === "color") return "color";
+  if (resolvedType !== "FLOAT") return undefined;
+  if (first === "spacing") return "spacing";
+  if (first === "radius") return "radius";
+  if (first === "fontsize") return "fontSize";
+  if (first === "opacity") return "opacity";
+  return undefined;
+};
 
-const channel = (value: unknown) =>
-  Math.round(Math.min(1, Math.max(0, typeof value === "number" ? value : 0)) * 255)
-    .toString(16)
-    .padStart(2, "0");
+const to255 = (value: number) => Math.round(value <= 1 ? value * 255 : value);
+const clamp = (min: number, value: number, max: number) => Math.min(max, Math.max(min, value));
 
-function normalizeValue(value: unknown, resolvedType: unknown): Pick<DesignToken, "type" | "value"> {
-  if (resolvedType === "COLOR" && isRecord(value) && ["r", "g", "b"].every((key) => typeof value[key] === "number")) {
-    const alpha = typeof value.a === "number" ? value.a : 1;
-    return { type: "color", value: `#${channel(value.r)}${channel(value.g)}${channel(value.b)}${alpha < 1 ? channel(alpha) : ""}` };
-  }
-  if (resolvedType === "FLOAT" && typeof value === "number") return { type: "number", value };
-  if (resolvedType === "STRING" && typeof value === "string") return { type: "string", value };
-  if (resolvedType === "BOOLEAN" && typeof value === "boolean") return { type: "boolean", value };
-  return { type: "unknown", value: null };
+function pickModeId(collection: RecordValue | undefined, values: RecordValue, wanted?: string) {
+  if (wanted && wanted in values) return wanted;
+  const defaultModeId = typeof collection?.defaultModeId === "string" ? collection.defaultModeId : undefined;
+  if (defaultModeId && defaultModeId in values) return defaultModeId;
+  const modes = Array.isArray(collection?.modes) ? collection.modes.filter(isRecord) : [];
+  const firstModeId = modes.map((mode) => mode.modeId).find((modeId): modeId is string => typeof modeId === "string" && modeId in values);
+  return firstModeId ?? Object.keys(values)[0];
 }
 
-export function normalizeFigmaVariables(input: unknown): DesignToken[] {
+function resolveValue(variables: RecordValue, variable: RecordValue, modeId: string, seen = new Set<unknown>()): unknown {
+  const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
+  const value = values[modeId] ?? values[Object.keys(values)[0]];
+  if (!isRecord(value) || value.type !== "VARIABLE_ALIAS" || typeof value.id !== "string") return value;
+  if (seen.has(value.id)) return undefined;
+  seen.add(value.id);
+  const target = variables[value.id];
+  return isRecord(target) ? resolveValue(variables, target, modeId, seen) : undefined;
+}
+
+function normalizeValue(value: unknown, type: TokenType): number | ColorValue | undefined {
+  if (type === "color" && isRecord(value) && ["r", "g", "b"].every((key) => typeof value[key] === "number")) {
+    return {
+      r: clamp(0, to255(value.r as number), 255),
+      g: clamp(0, to255(value.g as number), 255),
+      b: clamp(0, to255(value.b as number), 255),
+      a: clamp(0, typeof value.a === "number" ? value.a : 1, 1)
+    };
+  }
+  if (type !== "color" && typeof value === "number") return value;
+  return undefined;
+}
+
+export function normalizeFigmaVariables(input: unknown, options: NormalizeOptions = {}): DesignToken[] {
   if (!isRecord(input)) return [];
   const root = isRecord(input.meta) ? input.meta : input;
   const variables = isRecord(root.variables) ? root.variables : {};
@@ -55,26 +103,30 @@ export function normalizeFigmaVariables(input: unknown): DesignToken[] {
 
   for (const variable of Object.values(variables)) {
     if (!isRecord(variable) || typeof variable.name !== "string" || variable.deletedButReferenced === true) continue;
+    const type = tokenTypeFromName(variable.name, variable.resolvedType);
+    if (!type) {
+      options.onUnsupported?.(variable.name);
+      continue;
+    }
+    const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
     const collection = typeof variable.variableCollectionId === "string" && isRecord(collections[variable.variableCollectionId])
       ? collections[variable.variableCollectionId] as RecordValue
       : undefined;
-    const modes = Array.isArray(collection?.modes) ? collection.modes : [];
-    const modeNames = new Map(modes.filter(isRecord).map((mode) => [mode.modeId, mode.name]));
-    const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
-
-    for (const [modeId, rawValue] of Object.entries(values)) {
-      const aliasId = isRecord(rawValue) && rawValue.type === "VARIABLE_ALIAS" && typeof rawValue.id === "string" ? rawValue.id : undefined;
-      const description = [typeof variable.description === "string" && variable.description || undefined, aliasId && `Alias to ${aliasId}`]
-        .filter(Boolean).join("; ") || undefined;
-      result.push({
-        name: variable.name,
-        path: variable.name.split("/").filter(Boolean),
-        ...normalizeValue(rawValue, variable.resolvedType),
-        ...(typeof collection?.name === "string" ? { collection: collection.name } : {}),
-        ...(typeof modeNames.get(modeId) === "string" ? { mode: modeNames.get(modeId) as string } : {}),
-        ...(description ? { description } : {})
-      });
-    }
+    const modeId = pickModeId(collection, values, options.modeId);
+    if (!modeId) continue;
+    const value = normalizeValue(resolveValue(variables, variable, modeId), type);
+    if (value === undefined) continue;
+    const modes = Array.isArray(collection?.modes) ? collection.modes.filter(isRecord) : [];
+    const mode = modes.find((candidate) => candidate.modeId === modeId);
+    result.push({
+      name: variable.name,
+      path: variable.name.split("/").filter(Boolean),
+      type,
+      value,
+      ...(typeof collection?.name === "string" ? { collection: collection.name } : {}),
+      ...(typeof mode?.name === "string" ? { mode: mode.name } : {}),
+      ...(typeof variable.description === "string" && variable.description ? { description: variable.description } : {})
+    });
   }
   return result.sort(compareTokens);
 }
@@ -101,35 +153,72 @@ export function diffTokens(previous: DesignToken[], current: DesignToken[]): Tok
 
 export const renderTokensJson = (tokens: DesignToken[]) => `${JSON.stringify(tokens, null, 2)}\n`;
 
-const keyFor = (value: string, fallback = "default") => {
-  const words = value.match(/[A-Za-z0-9]+/g) ?? [];
-  let key = words.map((word, index) => index ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word.toLowerCase()).join("") || fallback;
+const words = (value: string) => value.replace(/([a-z0-9])([A-Z])/g, "$1 $2").match(/[A-Za-z0-9]+/g) ?? [];
+const camelKey = (value: string, fallback = "default") => {
+  let key = words(value).map((word, index) => index ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word.toLowerCase()).join("") || fallback;
   if (!/^[A-Za-z_$]/.test(key)) key = `_${key}`;
   return key;
 };
+const kebabKey = (value: string) => words(value).map((word) => word.toLowerCase()).join("-");
+const cssName = (token: DesignToken) => `--${token.path.map(kebabKey).filter(Boolean).join("-")}`;
+const scssName = (token: DesignToken) => `$${token.path.map(kebabKey).filter(Boolean).join("-")}`;
+const tailwindName = (token: DesignToken) => {
+  const rest = token.path.slice(1).map(kebabKey).filter(Boolean).join("-");
+  const prefix = token.type === "fontSize" ? "font-size" : token.type;
+  return `--${prefix}${rest ? `-${rest}` : ""}`;
+};
+const hex = (value: number) => clamp(0, Math.round(value), 255).toString(16).padStart(2, "0");
+const colorHex = (value: ColorValue) => `#${hex(value.r)}${hex(value.g)}${hex(value.b)}${value.a < 1 ? hex(value.a * 255) : ""}`;
+const formatValue = (token: DesignToken) => {
+  if (token.type === "color") return colorHex(token.value as ColorValue);
+  if (dimensionTypes.includes(token.type)) return `${token.value}px`;
+  return String(token.value);
+};
+
+function renderCssLike(tokens: DesignToken[], nameFor: (token: DesignToken) => string, wrap?: [string, string]) {
+  const lines = tokens.map((token) => `${wrap ? "  " : ""}${nameFor(token)}: ${formatValue(token)};`);
+  return wrap ? `${wrap[0]}\n${lines.join("\n")}\n${wrap[1]}\n` : `${lines.join("\n")}\n`;
+}
+
+export const renderCssVariables = (tokens: DesignToken[]) => renderCssLike(tokens, cssName, [":root {", "}"]);
+export const renderScssVariables = (tokens: DesignToken[]) => renderCssLike(tokens, scssName);
+export const renderTailwindTheme = (tokens: DesignToken[]) => renderCssLike(tokens, tailwindName, ["@theme {", "}"]);
+
+type DtcgToken = { $type: "color"; $value: string } | { $type: "dimension"; $value: { value: number; unit: "px" } } | { $type: "number"; $value: number };
+
+function dtcgValue(token: DesignToken): DtcgToken {
+  if (token.type === "color") return { $type: "color", $value: colorHex(token.value as ColorValue) };
+  if (dimensionTypes.includes(token.type)) return { $type: "dimension", $value: { value: token.value as number, unit: "px" } };
+  return { $type: "number", $value: token.value as number };
+}
+
+export function renderDtcgJson(tokens: DesignToken[]): string {
+  const root: RecordValue = {};
+  for (const token of tokens) {
+    let cursor = root;
+    token.path.forEach((part, index) => {
+      if (index === token.path.length - 1) {
+        if (part in cursor) throw new Error(`Duplicate DTCG path: ${token.path.join(".")}`);
+        cursor[part] = dtcgValue(token);
+      } else {
+        if (part in cursor && !isRecord(cursor[part])) throw new Error(`Duplicate DTCG path: ${token.path.join(".")}`);
+        cursor = cursor[part] as RecordValue ?? (cursor[part] = {} as RecordValue);
+      }
+    });
+  }
+  return `${JSON.stringify(root, null, 2)}\n`;
+}
 
 export function renderTheme(tokens: DesignToken[], exportName = "theme"): string {
   if (!/^[A-Za-z_$][\w$]*$/.test(exportName)) throw new Error(`Invalid TypeScript export name: ${exportName}`);
-  const usable = tokens.filter((token) => token.value !== null);
-  const modes = [...new Set(usable.map((token) => token.mode || "default"))].sort();
-  const includeMode = modes.length > 1;
-  const modeKeys = new Map<string, string>();
-  const usedModes = new Set<string>();
-  for (const mode of modes) {
-    const base = keyFor(mode);
-    let key = base;
-    for (let suffix = 2; usedModes.has(key); suffix++) key = `${base}Mode${suffix}`;
-    usedModes.add(key);
-    modeKeys.set(mode, key);
-  }
   const root: RecordValue = {};
-  for (const token of usable) {
-    const path = [...(includeMode ? [modeKeys.get(token.mode || "default")!] : []), ...token.path.map((part) => keyFor(part, "token"))];
+  for (const token of tokens) {
+    const path = token.path.map((part) => camelKey(part, "token"));
     let cursor = root;
     path.forEach((part, index) => {
       if (index === path.length - 1) {
         if (part in cursor) throw new Error(`Duplicate theme path: ${path.join(".")}`);
-        cursor[part] = token.value;
+        cursor[part] = formatValue(token);
       } else {
         if (part in cursor && !isRecord(cursor[part])) throw new Error(`Duplicate theme path: ${path.join(".")}`);
         cursor = cursor[part] as RecordValue ?? (cursor[part] = {} as RecordValue);

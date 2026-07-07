@@ -29,8 +29,8 @@ describe("sync", () => {
     const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
     const input = join(dir, "figma-tokens.json");
     const output = join(dir, "tokens.json");
-    await writeFile(input, JSON.stringify([{ name: "size/base", path: ["size", "base"], type: "number", value: 8 }]));
+    await writeFile(input, JSON.stringify([{ name: "spacing/base", path: ["spacing", "base"], type: "spacing", value: 8 }]));
     await sync({ input, output, snapshot: join(dir, "snapshot.json"), format: "tokens-json", exportName: "theme", dryRun: false }, () => {});
-    expect(await readFile(output, "utf8")).toContain('"size"');
+    expect(await readFile(output, "utf8")).toContain('"spacing"');
   });
 });

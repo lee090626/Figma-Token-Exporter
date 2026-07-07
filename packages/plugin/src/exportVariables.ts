@@ -1,8 +1,18 @@
-import { normalizeFigmaVariables, renderTheme, renderTokensJson, type DesignToken } from "@figma-token/core";
+import {
+  normalizeFigmaVariables,
+  renderCssVariables,
+  renderDtcgJson,
+  renderScssVariables,
+  renderTailwindTheme,
+  renderTheme,
+  renderTokensJson,
+  type DesignToken
+} from "@figma-token/core";
 
 export interface PluginCollection {
   id: string;
   name: string;
+  defaultModeId?: string;
   modes: Array<{ modeId: string; name: string }>;
 }
 
@@ -19,7 +29,7 @@ export function exportVariables(collections: PluginCollection[], variables: Plug
   return normalizeFigmaVariables({
     variableCollections: Object.fromEntries(collections.map((collection) => [collection.id, collection])),
     variables: Object.fromEntries(variables.map((variable) => [variable.id, variable]))
-  });
+  }, { onUnsupported: (name) => console.warn(`unsupported type skipped: ${name}`) });
 }
 
 export function createExports(collections: PluginCollection[], variables: PluginVariable[]) {
@@ -28,7 +38,11 @@ export function createExports(collections: PluginCollection[], variables: Plugin
     count: tokens.length,
     files: {
       "tokens.json": renderTokensJson(tokens),
-      "theme.ts": renderTheme(tokens)
+      "theme.ts": renderTheme(tokens),
+      "variables.css": renderCssVariables(tokens),
+      "tokens.scss": renderScssVariables(tokens),
+      "tailwind.css": renderTailwindTheme(tokens),
+      "tokens.dtcg.json": renderDtcgJson(tokens)
     }
   };
 }

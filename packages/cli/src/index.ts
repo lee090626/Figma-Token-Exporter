@@ -4,7 +4,8 @@ import { Command, InvalidArgumentError } from "commander";
 import { sync } from "./sync.js";
 
 const format = (value: string) => {
-  if (value !== "tokens-json" && value !== "theme-ts") throw new InvalidArgumentError("format은 tokens-json 또는 theme-ts여야 합니다.");
+  const formats = ["tokens-json", "theme-ts", "variables-css", "tokens-scss", "tailwind-css", "tokens-dtcg-json"];
+  if (!formats.includes(value)) throw new InvalidArgumentError(`format은 ${formats.join(", ")} 중 하나여야 합니다.`);
   return value;
 };
 
@@ -13,7 +14,7 @@ program.command("sync")
   .option("--input <path>", "로컬 Figma Variables JSON")
   .option("--output <path>", "출력 파일", "./tokens.json")
   .option("--snapshot <path>", "snapshot 파일", ".figma-token/snapshot.json")
-  .option("--format <format>", "tokens-json 또는 theme-ts", format, "tokens-json")
+  .option("--format <format>", "출력 포맷", format, "tokens-json")
   .option("--export-name <name>", "theme.ts export 이름", "theme")
   .option("--figma-token <token>", "Figma token")
   .option("--file-key <key>", "Figma file key")

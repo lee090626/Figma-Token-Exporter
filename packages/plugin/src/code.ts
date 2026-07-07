@@ -10,7 +10,7 @@ async function sendVariables() {
     figma.variables.getLocalVariablesAsync()
   ]);
   const result = createExports(
-    collections.map(({ id, name, modes }) => ({ id, name, modes })),
+    collections.map(({ id, name, defaultModeId, modes }) => ({ id, name, defaultModeId, modes })),
     variables.map(({ id, name, description, variableCollectionId, resolvedType, valuesByMode }) =>
       ({ id, name, description, variableCollectionId, resolvedType, valuesByMode }))
   );
