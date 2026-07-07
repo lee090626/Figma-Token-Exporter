@@ -1,9 +1,11 @@
 .aider*
+AGENTS.md
 .env
 node_modules/
 dist/
 .figma-token/
 .figma-token-pr/
+export-outputs/
 tokens.json
 **/__snapshots__/
 *.snap
