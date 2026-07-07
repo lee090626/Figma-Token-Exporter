@@ -9,15 +9,17 @@ import {
   renderTailwindTheme,
   renderTheme,
   renderTokensJson,
+  generateVariableName,
   type DesignToken
 } from "./index.js";
 
 const tokens: DesignToken[] = [
   { name: "color/brand/primary", path: ["color", "brand", "primary"], type: "color", value: { r: 51, g: 102, b: 255, a: 1 } },
+  { name: "brand/secondary", path: ["brand", "secondary"], type: "color", value: { r: 255, g: 0, b: 0, a: 0.5 } },
   { name: "color/brand/overlay/subtle", path: ["color", "brand", "overlay", "subtle"], type: "color", value: { r: 0, g: 0, b: 0, a: 0.5 } },
   { name: "spacing/small", path: ["spacing", "small"], type: "spacing", value: 8 },
   { name: "spacing/layout/card/gap", path: ["spacing", "layout", "card", "gap"], type: "spacing", value: 24 },
-  { name: "radius/medium", path: ["radius", "medium"], type: "radius", value: 12 },
+  { name: "radius/medium", path: ["radius", "medium"], type: "radius", value: 8 },
   { name: "fontSize/body", path: ["fontSize", "body"], type: "fontSize", value: 16 },
   { name: "opacity/disabled", path: ["opacity", "disabled"], type: "opacity", value: 0.5 }
 ];
@@ -26,6 +28,7 @@ const figmaInput = { meta: {
   variableCollections: { c: { name: "Brand", defaultModeId: "light", modes: [{ modeId: "light", name: "Light" }, { modeId: "dark", name: "Dark" }] } },
   variables: {
     base: { name: "color/brand/primary", variableCollectionId: "c", resolvedType: "COLOR", valuesByMode: { light: { r: 0.2, g: 0.4, b: 1, a: 1 }, dark: { r: 0, g: 0, b: 0, a: 1 } } },
+    unprefixedColor: { name: "brand/secondary", variableCollectionId: "c", resolvedType: "COLOR", valuesByMode: { light: { r: 1, g: 0, b: 0, a: 0.5 } } },
     alias: { name: "color/brand/alias", variableCollectionId: "c", resolvedType: "COLOR", valuesByMode: { light: { type: "VARIABLE_ALIAS", id: "base" } } },
     spacing: { name: "spacing/layout/card/gap", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 24 } },
     radius: { name: "radius/medium", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 12 } },
@@ -41,6 +44,22 @@ describe("core", () => {
     const skipped: string[] = [];
     expect(normalizeFigmaVariables(figmaInput, { onUnsupported: (name) => skipped.push(name) })).toMatchInlineSnapshot(`
       [
+        {
+          "collection": "Brand",
+          "mode": "Light",
+          "name": "brand/secondary",
+          "path": [
+            "brand",
+            "secondary",
+          ],
+          "type": "color",
+          "value": {
+            "a": 0.5,
+            "b": 0,
+            "g": 0,
+            "r": 255,
+          },
+        },
         {
           "collection": "Brand",
           "mode": "Light",
@@ -127,6 +146,9 @@ describe("core", () => {
   });
 
   it("renders all Phase 1 formats from normalized tokens", () => {
+    expect(tokens.map(generateVariableName)).toContain("color-brand-primary");
+    expect(tokens.map(generateVariableName)).toContain("color-brand-secondary");
+    expect(tokens.map(generateVariableName)).toContain("font-size-body");
     expect(renderTokensJson(tokens)).toMatchSnapshot();
     expect(renderTheme(tokens)).toMatchSnapshot();
     expect(renderCssVariables(tokens)).toMatchSnapshot();
@@ -136,8 +158,8 @@ describe("core", () => {
   });
 
   it("finds stable added, changed, and removed diffs", () => {
-    const old = [tokens[2], tokens[3]];
-    const current = [{ ...tokens[2], value: 10 }, tokens[4]];
+    const old = [tokens[3], tokens[4]];
+    const current = [{ ...tokens[3], value: 10 }, tokens[5]];
     expect(diffTokens(old, current).map(({ type, token }) => `${type}:${token.name}`)).toEqual(["added:radius/medium", "removed:spacing/layout/card/gap", "changed:spacing/small"]);
   });
 

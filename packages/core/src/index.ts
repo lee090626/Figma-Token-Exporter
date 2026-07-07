@@ -50,7 +50,7 @@ export function isDesignTokenArray(value: unknown): value is DesignToken[] {
 
 const tokenTypeFromName = (name: string, resolvedType: unknown): TokenType | undefined => {
   const first = name.split("/").filter(Boolean)[0]?.toLowerCase().replace(/[-_\s]/g, "");
-  if (resolvedType === "COLOR" && first === "color") return "color";
+  if (resolvedType === "COLOR") return "color";
   if (resolvedType !== "FLOAT") return undefined;
   if (first === "spacing") return "spacing";
   if (first === "radius") return "radius";
@@ -160,12 +160,12 @@ const camelKey = (value: string, fallback = "default") => {
   return key;
 };
 const kebabKey = (value: string) => words(value).map((word) => word.toLowerCase()).join("-");
-const cssName = (token: DesignToken) => `--${token.path.map(kebabKey).filter(Boolean).join("-")}`;
-const scssName = (token: DesignToken) => `$${token.path.map(kebabKey).filter(Boolean).join("-")}`;
-const tailwindName = (token: DesignToken) => {
-  const rest = token.path.slice(1).map(kebabKey).filter(Boolean).join("-");
+export const generateVariableName = (token: DesignToken) => {
   const prefix = token.type === "fontSize" ? "font-size" : token.type;
-  return `--${prefix}${rest ? `-${rest}` : ""}`;
+  const first = token.path[0]?.toLowerCase().replace(/[-_\s]/g, "");
+  const hasPrefix = first === prefix.replace(/-/g, "");
+  const rest = token.path.slice(hasPrefix ? 1 : 0).map(kebabKey).filter(Boolean).join("-");
+  return `${prefix}${rest ? `-${rest}` : ""}`;
 };
 const hex = (value: number) => clamp(0, Math.round(value), 255).toString(16).padStart(2, "0");
 const colorHex = (value: ColorValue) => `#${hex(value.r)}${hex(value.g)}${hex(value.b)}${value.a < 1 ? hex(value.a * 255) : ""}`;
@@ -180,9 +180,12 @@ function renderCssLike(tokens: DesignToken[], nameFor: (token: DesignToken) => s
   return wrap ? `${wrap[0]}\n${lines.join("\n")}\n${wrap[1]}\n` : `${lines.join("\n")}\n`;
 }
 
+const cssName = (token: DesignToken) => `--${generateVariableName(token)}`;
+const scssName = (token: DesignToken) => `$${generateVariableName(token)}`;
+
 export const renderCssVariables = (tokens: DesignToken[]) => renderCssLike(tokens, cssName, [":root {", "}"]);
 export const renderScssVariables = (tokens: DesignToken[]) => renderCssLike(tokens, scssName);
-export const renderTailwindTheme = (tokens: DesignToken[]) => renderCssLike(tokens, tailwindName, ["@theme {", "}"]);
+export const renderTailwindTheme = (tokens: DesignToken[]) => renderCssLike(tokens, cssName, ["@theme {", "}"]);
 
 type DtcgToken = { $type: "color"; $value: string } | { $type: "dimension"; $value: { value: number; unit: "px" } } | { $type: "number"; $value: number };
 

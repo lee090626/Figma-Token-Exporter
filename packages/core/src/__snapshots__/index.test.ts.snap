@@ -18,6 +18,20 @@ exports[`core > renders all Phase 1 formats from normalized tokens 1`] = `
     }
   },
   {
+    "name": "brand/secondary",
+    "path": [
+      "brand",
+      "secondary"
+    ],
+    "type": "color",
+    "value": {
+      "r": 255,
+      "g": 0,
+      "b": 0,
+      "a": 0.5
+    }
+  },
+  {
     "name": "color/brand/overlay/subtle",
     "path": [
       "color",
@@ -60,7 +74,7 @@ exports[`core > renders all Phase 1 formats from normalized tokens 1`] = `
       "medium"
     ],
     "type": "radius",
-    "value": 12
+    "value": 8
   },
   {
     "name": "fontSize/body",
@@ -94,6 +108,9 @@ exports[`core > renders all Phase 1 formats from normalized tokens 2`] = `
       }
     }
   },
+  "brand": {
+    "secondary": "#ff000080"
+  },
   "spacing": {
     "small": "8px",
     "layout": {
@@ -103,7 +120,7 @@ exports[`core > renders all Phase 1 formats from normalized tokens 2`] = `
     }
   },
   "radius": {
-    "medium": "12px"
+    "medium": "8px"
   },
   "fontSize": {
     "body": "16px"
@@ -118,10 +135,11 @@ exports[`core > renders all Phase 1 formats from normalized tokens 2`] = `
 exports[`core > renders all Phase 1 formats from normalized tokens 3`] = `
 ":root {
   --color-brand-primary: #3366ff;
+  --color-brand-secondary: #ff000080;
   --color-brand-overlay-subtle: #00000080;
   --spacing-small: 8px;
   --spacing-layout-card-gap: 24px;
-  --radius-medium: 12px;
+  --radius-medium: 8px;
   --font-size-body: 16px;
   --opacity-disabled: 0.5;
 }
@@ -130,10 +148,11 @@ exports[`core > renders all Phase 1 formats from normalized tokens 3`] = `
 
 exports[`core > renders all Phase 1 formats from normalized tokens 4`] = `
 "$color-brand-primary: #3366ff;
+$color-brand-secondary: #ff000080;
 $color-brand-overlay-subtle: #00000080;
 $spacing-small: 8px;
 $spacing-layout-card-gap: 24px;
-$radius-medium: 12px;
+$radius-medium: 8px;
 $font-size-body: 16px;
 $opacity-disabled: 0.5;
 "
@@ -142,10 +161,11 @@ $opacity-disabled: 0.5;
 exports[`core > renders all Phase 1 formats from normalized tokens 5`] = `
 "@theme {
   --color-brand-primary: #3366ff;
+  --color-brand-secondary: #ff000080;
   --color-brand-overlay-subtle: #00000080;
   --spacing-small: 8px;
   --spacing-layout-card-gap: 24px;
-  --radius-medium: 12px;
+  --radius-medium: 8px;
   --font-size-body: 16px;
   --opacity-disabled: 0.5;
 }
@@ -166,6 +186,12 @@ exports[`core > renders all Phase 1 formats from normalized tokens 6`] = `
           "$value": "#00000080"
         }
       }
+    }
+  },
+  "brand": {
+    "secondary": {
+      "$type": "color",
+      "$value": "#ff000080"
     }
   },
   "spacing": {
@@ -192,7 +218,7 @@ exports[`core > renders all Phase 1 formats from normalized tokens 6`] = `
     "medium": {
       "$type": "dimension",
       "$value": {
-        "value": 12,
+        "value": 8,
         "unit": "px"
       }
     }
