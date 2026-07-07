@@ -52,10 +52,10 @@ const render = (tokens: DesignToken[], options: SyncOptions) => ({
 const skippedMessage = (name: string, reason: "unclassified-float" | "unsupported-type") =>
   reason === "unclassified-float" ? `unclassified FLOAT variable skipped: ${name}` : `unsupported type skipped: ${name}`;
 
-export async function sync(options: SyncOptions, log = console.log): Promise<void> {
+export async function sync(options: SyncOptions, log = console.log, warn = console.warn): Promise<void> {
   if (!options.input && (!options.figmaToken || !options.fileKey)) throw new Error("--input 또는 FIGMA_TOKEN과 FIGMA_FILE_KEY가 필요합니다.");
   const raw = options.input ? await readJson(options.input) : await fetchFigmaVariables(options.fileKey!, options.figmaToken!);
-  const current = isDesignTokenArray(raw) ? raw : normalizeFigmaVariables(raw, { onUnsupported: (name, reason) => log(skippedMessage(name, reason)) });
+  const current = isDesignTokenArray(raw) ? raw : normalizeFigmaVariables(raw, { onUnsupported: (name, reason) => warn(skippedMessage(name, reason)) });
   const diffs = diffTokens(await readSnapshot(options.snapshot), current);
   for (const type of ["added", "changed", "removed"] as const) log(`${type[0].toUpperCase()}${type.slice(1)}: ${diffs.filter((diff) => diff.type === type).length}`);
   diffs.forEach((diff) => log(`${diff.type} ${diff.token.path.join("/")}`));

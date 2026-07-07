@@ -38,12 +38,17 @@ describe("sync", () => {
     const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
     const input = join(dir, "figma.json");
     const logs: string[] = [];
+    const warnings: string[] = [];
     await writeFile(input, JSON.stringify({
       variables: {
         size: { name: "ExtraLarge - 28", resolvedType: "FLOAT", valuesByMode: { light: 28 } }
       }
     }));
-    await sync({ input, output: join(dir, "tokens.json"), snapshot: join(dir, "snapshot.json"), format: "tokens-json", exportName: "theme", dryRun: true }, (message) => logs.push(message));
-    expect(logs).toContain("unclassified FLOAT variable skipped: ExtraLarge - 28");
+    await sync(
+      { input, output: join(dir, "tokens.json"), snapshot: join(dir, "snapshot.json"), format: "tokens-json", exportName: "theme", dryRun: true },
+      (message) => logs.push(message),
+      (message) => warnings.push(message)
+    );
+    expect(warnings).toContain("unclassified FLOAT variable skipped: ExtraLarge - 28");
   });
 });
