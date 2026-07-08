@@ -33,6 +33,16 @@ describe("sync", () => {
     expect(await readFile(snapshot, "utf8")).toBe("[]\n");
   });
 
+  it("rejects invalid snapshot tokens", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
+    const input = join(dir, "input.json");
+    const snapshot = join(dir, "snapshot.json");
+    await writeFile(input, JSON.stringify({ variables: {} }));
+    await writeFile(snapshot, JSON.stringify([{ name: "spacing/base", path: ["spacing", "base"], type: "number", value: 8 }]));
+    await expect(sync({ input, output: join(dir, "tokens.json"), snapshot, format: "tokens-json", exportName: "theme", dryRun: true }, () => {}))
+      .rejects.toThrow("snapshot은 DesignToken 배열이어야 합니다.");
+  });
+
   it("accepts normalized tokens exported by the plugin", async () => {
     const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
     const input = join(dir, "figma-tokens.json");

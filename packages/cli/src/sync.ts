@@ -36,8 +36,8 @@ const readJson = async (path: string) => {
 const readSnapshot = async (path: string): Promise<DesignToken[]> => {
   try {
     const value = await readJson(path);
-    if (!Array.isArray(value)) throw new Error("snapshot은 배열이어야 합니다.");
-    return value as DesignToken[];
+    if (!isDesignTokenArray(value)) throw new Error("snapshot은 DesignToken 배열이어야 합니다.");
+    return value;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
