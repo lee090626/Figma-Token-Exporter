@@ -291,6 +291,22 @@ describe("core", () => {
     ]);
   });
 
+  it("skips alias targets without the selected mode instead of falling back to another mode", () => {
+    const warnings: string[] = [];
+    const result = normalizeFigmaVariables({
+      variableCollections: { c: { name: "Brand", defaultModeId: "dark", modes: [{ modeId: "light", name: "Light" }, { modeId: "dark", name: "Dark" }] } },
+      variables: {
+        alias: { name: "color/alias", variableCollectionId: "c", resolvedType: "COLOR", valuesByMode: { dark: { type: "VARIABLE_ALIAS", id: "base" } } },
+        base: { name: "color/base", variableCollectionId: "c", resolvedType: "COLOR", valuesByMode: { light: { r: 1, g: 0, b: 0, a: 1 } } }
+      }
+    }, { onAliasWarning: (name, reason, collection) => warnings.push(`${reason}:${name}:${collection ?? ""}`) });
+
+    // The alias selected dark mode, so using base.light would mix modes silently.
+    expect(result.map((token) => token.name)).toEqual(["color/base"]);
+    expect(result).not.toContainEqual(expect.objectContaining({ name: "color/alias", value: { r: 255, g: 0, b: 0, a: 1 } }));
+    expect(warnings).toEqual(["alias-mode-mismatch:color/base (mode: dark):Brand"]);
+  });
+
   it("rejects invalid exports, duplicate paths, and invalid normalized tokens", () => {
     expect(isDesignTokenArray(tokens)).toBe(true);
     expect(isDesignTokenArray([{ name: "a", path: ["a"], type: "number", value: 1 }])).toBe(false);

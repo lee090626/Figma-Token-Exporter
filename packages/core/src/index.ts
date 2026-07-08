@@ -82,11 +82,15 @@ function pickModeId(collection: RecordValue | undefined, values: RecordValue, wa
   return firstModeId ?? Object.keys(values)[0];
 }
 
-function resolveValue(variables: RecordValue, variable: RecordValue, modeId: string, onWarning?: (name: string, reason: "alias-target-missing" | "alias-cycle") => void, seen = new Set<unknown>()): unknown {
+function resolveValue(variables: RecordValue, variable: RecordValue, modeId: string, onWarning?: (name: string, reason: "alias-target-missing" | "alias-cycle" | "alias-mode-mismatch") => void, seen = new Set<unknown>()): unknown {
   const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
-  const value = values[modeId] ?? values[Object.keys(values)[0]];
+  const name = typeof variable.name === "string" ? variable.name : modeId;
+  if (!(modeId in values)) {
+    onWarning?.(`${name} (mode: ${modeId})`, "alias-mode-mismatch");
+    return undefined;
+  }
+  const value = values[modeId];
   if (!isRecord(value) || value.type !== "VARIABLE_ALIAS" || typeof value.id !== "string") return value;
-  const name = typeof variable.name === "string" ? variable.name : value.id;
   if (seen.has(value.id)) {
     onWarning?.(name, "alias-cycle");
     return undefined;
@@ -137,7 +141,7 @@ export function normalizeFigmaVariables(input: unknown, options: NormalizeOption
     if (!modeId) continue;
     const warnAlias = (name: string, reason: "alias-target-missing" | "alias-cycle" | "alias-type-mismatch" | "alias-mode-mismatch") =>
       options.onAliasWarning?.(name, reason, typeof collection?.name === "string" ? collection.name : undefined);
-    const selectedValue = values[modeId] ?? values[Object.keys(values)[0]];
+    const selectedValue = values[modeId];
     const rawValue = resolveValue(variables, variable, modeId, warnAlias);
     const value = normalizeValue(rawValue, type);
     if (value === undefined) {
