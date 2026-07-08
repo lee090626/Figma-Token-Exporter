@@ -26,15 +26,17 @@ export interface PluginVariable {
   valuesByMode: Record<string, unknown>;
 }
 
-const skippedMessage = (name: string, reason: "unclassified-float" | "unsupported-type") =>
-  reason === "unclassified-float" ? `unclassified FLOAT variable skipped: ${name}` : `unsupported type skipped: ${name}`;
+const skippedMessage = (name: string, reason: "unclassified-float" | "unsupported-type", collection?: string) => {
+  const suffix = collection ? ` (collection: ${collection})` : "";
+  return reason === "unclassified-float" ? `unclassified FLOAT variable skipped: ${name}${suffix}` : `unsupported type skipped: ${name}${suffix}`;
+};
 const tokenTypes: TokenType[] = ["color", "spacing", "radius", "fontSize", "opacity"];
 
 export function exportVariables(collections: PluginCollection[], variables: PluginVariable[], onWarning = console.warn): DesignToken[] {
   return normalizeFigmaVariables({
     variableCollections: Object.fromEntries(collections.map((collection) => [collection.id, collection])),
     variables: Object.fromEntries(variables.map((variable) => [variable.id, variable]))
-  }, { onUnsupported: (name, reason) => onWarning(skippedMessage(name, reason)) });
+  }, { onUnsupported: (name, reason, collection) => onWarning(skippedMessage(name, reason, collection)) });
 }
 
 export function createExports(collections: PluginCollection[], variables: PluginVariable[]) {
@@ -48,7 +50,7 @@ export function createExports(collections: PluginCollection[], variables: Plugin
     count: tokens.length,
     typeCounts,
     warnings,
-    skippedVariables: warnings.map((warning) => warning.replace(/^.* skipped: /, "")),
+    skippedVariables: warnings.map((warning) => warning.replace(/^.* skipped: /, "").replace(/ \(collection: .*?\)$/, "")),
     files: {
       "tokens.json": renderTokensJson(tokens),
       "theme.ts": renderTheme(tokens),

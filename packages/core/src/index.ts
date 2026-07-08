@@ -24,7 +24,7 @@ export interface TokenDiff {
 
 export interface NormalizeOptions {
   modeId?: string;
-  onUnsupported?: (name: string, reason: "unclassified-float" | "unsupported-type") => void;
+  onUnsupported?: (name: string, reason: "unclassified-float" | "unsupported-type", collection?: string) => void;
 }
 
 type RecordValue = Record<string, unknown>;
@@ -56,6 +56,16 @@ const tokenTypeFromName = (name: string, resolvedType: unknown): TokenType | und
   if (first === "radius") return "radius";
   if (first === "fontsize") return "fontSize";
   if (first === "opacity") return "opacity";
+  return undefined;
+};
+
+const tokenTypeFromCollection = (collection: RecordValue | undefined, resolvedType: unknown): TokenType | undefined => {
+  if (resolvedType !== "FLOAT" || typeof collection?.name !== "string") return undefined;
+  const name = collection.name.toLowerCase();
+  if (name.includes("spacing") || name.includes("gap")) return "spacing";
+  if (name.includes("radius") || name.includes("corner") || name.includes("shape")) return "radius";
+  if (name.includes("fontsize") || name.includes("font-size") || name.includes("font size") || name.includes("text")) return "fontSize";
+  if (name.includes("opacity") || name.includes("alpha")) return "opacity";
   return undefined;
 };
 
@@ -103,15 +113,15 @@ export function normalizeFigmaVariables(input: unknown, options: NormalizeOption
 
   for (const variable of Object.values(variables)) {
     if (!isRecord(variable) || typeof variable.name !== "string" || variable.deletedButReferenced === true) continue;
-    const type = tokenTypeFromName(variable.name, variable.resolvedType);
-    if (!type) {
-      options.onUnsupported?.(variable.name, variable.resolvedType === "FLOAT" ? "unclassified-float" : "unsupported-type");
-      continue;
-    }
-    const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
     const collection = typeof variable.variableCollectionId === "string" && isRecord(collections[variable.variableCollectionId])
       ? collections[variable.variableCollectionId] as RecordValue
       : undefined;
+    const type = tokenTypeFromName(variable.name, variable.resolvedType) ?? tokenTypeFromCollection(collection, variable.resolvedType);
+    if (!type) {
+      options.onUnsupported?.(variable.name, variable.resolvedType === "FLOAT" ? "unclassified-float" : "unsupported-type", typeof collection?.name === "string" ? collection.name : undefined);
+      continue;
+    }
+    const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
     const modeId = pickModeId(collection, values, options.modeId);
     if (!modeId) continue;
     const value = normalizeValue(resolveValue(variables, variable, modeId), type);

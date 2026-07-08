@@ -20,15 +20,26 @@ it("creates files that can be downloaded directly", () => {
   expect(Object.keys(result.files)).toEqual(["tokens.json", "theme.ts", "variables.css", "tokens.scss", "tailwind.css", "tokens.dtcg.json"]);
 });
 
-it("warns when FLOAT variables cannot be classified by name", () => {
-  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+it("classifies unprefixed FLOAT variables from collection names", () => {
   const result = createExports(
     [{ id: "c", name: "Shape", modes: [{ modeId: "light", name: "Light" }] }],
     [{ id: "v", name: "ExtraLarge - 28", description: "", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 28 } }]
   );
+  expect(result.count).toBe(1);
+  expect(result.typeCounts.radius).toBe(1);
+  expect(result.warnings).toEqual([]);
+  expect(result.files["variables.css"]).toContain("--radius-extra-large-28: 28px;");
+});
+
+it("warns when FLOAT variables cannot be classified by name", () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const result = createExports(
+    [{ id: "c", name: "Unknown", modes: [{ modeId: "light", name: "Light" }] }],
+    [{ id: "v", name: "ExtraLarge - 28", description: "", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 28 } }]
+  );
   expect(result.count).toBe(0);
-  expect(result.warnings).toEqual(["unclassified FLOAT variable skipped: ExtraLarge - 28"]);
+  expect(result.warnings).toEqual(["unclassified FLOAT variable skipped: ExtraLarge - 28 (collection: Unknown)"]);
   expect(result.skippedVariables).toEqual(["ExtraLarge - 28"]);
-  expect(warn).toHaveBeenCalledWith("unclassified FLOAT variable skipped: ExtraLarge - 28");
+  expect(warn).toHaveBeenCalledWith("unclassified FLOAT variable skipped: ExtraLarge - 28 (collection: Unknown)");
   warn.mockRestore();
 });

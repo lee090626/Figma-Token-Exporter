@@ -50,7 +50,7 @@ const figmaInput = { meta: {
 describe("core", () => {
   it("normalizes supported Figma variables, resolves aliases, uses one mode, and skips unsupported types", () => {
     const skipped: string[] = [];
-    expect(normalizeFigmaVariables(figmaInput, { onUnsupported: (name, reason) => skipped.push(`${reason}:${name}`) })).toMatchInlineSnapshot(`
+    expect(normalizeFigmaVariables(figmaInput, { onUnsupported: (name, reason, collection) => skipped.push(`${reason}:${name}:${collection ?? ""}`) })).toMatchInlineSnapshot(`
       [
         {
           "collection": "Brand",
@@ -150,7 +150,32 @@ describe("core", () => {
         },
       ]
     `);
-    expect(skipped).toEqual(["unclassified-float:ExtraLarge - 28", "unclassified-float:shadow/card"]);
+    expect(skipped).toEqual(["unclassified-float:ExtraLarge - 28:Brand", "unclassified-float:shadow/card:Brand"]);
+  });
+
+  it("falls back to collection names for unprefixed FLOAT variables", () => {
+    const skipped: string[] = [];
+    const result = normalizeFigmaVariables({
+      variableCollections: {
+        shape: { name: "Shape", modes: [{ modeId: "light", name: "Light" }] },
+        spacing: { name: "Spacing", modes: [{ modeId: "light", name: "Light" }] },
+        radius: { name: "Radius", modes: [{ modeId: "light", name: "Light" }] },
+        unknown: { name: "Unknown", modes: [{ modeId: "light", name: "Light" }] }
+      },
+      variables: {
+        xl: { name: "ExtraLarge - 28", variableCollectionId: "shape", resolvedType: "FLOAT", valuesByMode: { light: 28 } },
+        sm: { name: "Small - 10", variableCollectionId: "spacing", resolvedType: "FLOAT", valuesByMode: { light: 10 } },
+        md: { name: "Medium - 12", variableCollectionId: "radius", resolvedType: "FLOAT", valuesByMode: { light: 12 } },
+        random: { name: "RandomName - 5", variableCollectionId: "unknown", resolvedType: "FLOAT", valuesByMode: { light: 5 } }
+      }
+    }, { onUnsupported: (name, reason, collection) => skipped.push(`${reason}:${name}:${collection}`) });
+
+    expect(result.map((token) => `${token.name}:${token.type}:${token.value}`)).toEqual([
+      "Medium - 12:radius:12",
+      "ExtraLarge - 28:radius:28",
+      "Small - 10:spacing:10"
+    ]);
+    expect(skipped).toEqual(["unclassified-float:RandomName - 5:Unknown"]);
   });
 
   it("renders all Phase 1 formats from normalized tokens", () => {
