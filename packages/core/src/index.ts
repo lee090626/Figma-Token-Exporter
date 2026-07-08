@@ -116,7 +116,9 @@ export function normalizeFigmaVariables(input: unknown, options: NormalizeOption
     const collection = typeof variable.variableCollectionId === "string" && isRecord(collections[variable.variableCollectionId])
       ? collections[variable.variableCollectionId] as RecordValue
       : undefined;
-    const type = tokenTypeFromName(variable.name, variable.resolvedType) ?? tokenTypeFromCollection(collection, variable.resolvedType);
+    const typeFromName = tokenTypeFromName(variable.name, variable.resolvedType);
+    const typeFromCollection = tokenTypeFromCollection(collection, variable.resolvedType);
+    const type = typeFromName ?? typeFromCollection;
     if (!type) {
       options.onUnsupported?.(variable.name, variable.resolvedType === "FLOAT" ? "unclassified-float" : "unsupported-type", typeof collection?.name === "string" ? collection.name : undefined);
       continue;
@@ -128,9 +130,10 @@ export function normalizeFigmaVariables(input: unknown, options: NormalizeOption
     if (value === undefined) continue;
     const modes = Array.isArray(collection?.modes) ? collection.modes.filter(isRecord) : [];
     const mode = modes.find((candidate) => candidate.modeId === modeId);
+    const path = variable.name.split("/").filter(Boolean);
     result.push({
       name: variable.name,
-      path: variable.name.split("/").filter(Boolean),
+      path: typeFromName ? path : [type, ...path],
       type,
       value,
       ...(typeof collection?.name === "string" ? { collection: collection.name } : {}),

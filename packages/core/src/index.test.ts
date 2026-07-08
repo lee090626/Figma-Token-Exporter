@@ -170,11 +170,53 @@ describe("core", () => {
       }
     }, { onUnsupported: (name, reason, collection) => skipped.push(`${reason}:${name}:${collection}`) });
 
-    expect(result.map((token) => `${token.name}:${token.type}:${token.value}`)).toEqual([
-      "Medium - 12:radius:12",
-      "ExtraLarge - 28:radius:28",
-      "Small - 10:spacing:10"
+    expect(result.map((token) => `${token.path.join("/")}:${token.type}:${token.value}`)).toEqual([
+      "radius/Medium - 12:radius:12",
+      "radius/ExtraLarge - 28:radius:28",
+      "spacing/Small - 10:spacing:10"
     ]);
+    expect(renderTheme(result)).toMatchInlineSnapshot(`
+      "export const theme = {
+        "radius": {
+          "medium12": "12px",
+          "extraLarge28": "28px"
+        },
+        "spacing": {
+          "small10": "10px"
+        }
+      } as const;
+      "
+    `);
+    expect(renderDtcgJson(result)).toMatchInlineSnapshot(`
+      "{
+        "radius": {
+          "Medium - 12": {
+            "$type": "dimension",
+            "$value": {
+              "value": 12,
+              "unit": "px"
+            }
+          },
+          "ExtraLarge - 28": {
+            "$type": "dimension",
+            "$value": {
+              "value": 28,
+              "unit": "px"
+            }
+          }
+        },
+        "spacing": {
+          "Small - 10": {
+            "$type": "dimension",
+            "$value": {
+              "value": 10,
+              "unit": "px"
+            }
+          }
+        }
+      }
+      "
+    `);
     expect(skipped).toEqual(["unclassified-float:RandomName - 5:Unknown"]);
   });
 

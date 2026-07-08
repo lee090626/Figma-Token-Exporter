@@ -28,6 +28,8 @@ it("classifies unprefixed FLOAT variables from collection names", () => {
   expect(result.count).toBe(1);
   expect(result.typeCounts.radius).toBe(1);
   expect(result.warnings).toEqual([]);
+  expect(result.files["theme.ts"]).toContain('"radius": {\n    "extraLarge28": "28px"');
+  expect(result.files["tokens.dtcg.json"]).toContain('"radius": {\n    "ExtraLarge - 28":');
   expect(result.files["variables.css"]).toContain("--radius-extra-large-28: 28px;");
 });
 
