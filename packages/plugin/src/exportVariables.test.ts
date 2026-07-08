@@ -14,6 +14,7 @@ it("creates files that can be downloaded directly", () => {
     [{ id: "v", name: "spacing/base", description: "", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 8 } }]
   );
   expect(result.count).toBe(1);
+  expect(result.typeCounts).toEqual({ color: 0, spacing: 1, radius: 0, fontSize: 0, opacity: 0 });
   expect(result.files["tokens.json"]).toContain('"value": 8');
   expect(result.files["theme.ts"]).toContain('"base": "8px"');
   expect(Object.keys(result.files)).toEqual(["tokens.json", "theme.ts", "variables.css", "tokens.scss", "tailwind.css", "tokens.dtcg.json"]);
@@ -27,6 +28,7 @@ it("warns when FLOAT variables cannot be classified by name", () => {
   );
   expect(result.count).toBe(0);
   expect(result.warnings).toEqual(["unclassified FLOAT variable skipped: ExtraLarge - 28"]);
+  expect(result.skippedVariables).toEqual(["ExtraLarge - 28"]);
   expect(warn).toHaveBeenCalledWith("unclassified FLOAT variable skipped: ExtraLarge - 28");
   warn.mockRestore();
 });

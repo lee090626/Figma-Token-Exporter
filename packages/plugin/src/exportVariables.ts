@@ -6,7 +6,8 @@ import {
   renderTailwindTheme,
   renderTheme,
   renderTokensJson,
-  type DesignToken
+  type DesignToken,
+  type TokenType
 } from "@figma-token/core";
 
 export interface PluginCollection {
@@ -27,6 +28,7 @@ export interface PluginVariable {
 
 const skippedMessage = (name: string, reason: "unclassified-float" | "unsupported-type") =>
   reason === "unclassified-float" ? `unclassified FLOAT variable skipped: ${name}` : `unsupported type skipped: ${name}`;
+const tokenTypes: TokenType[] = ["color", "spacing", "radius", "fontSize", "opacity"];
 
 export function exportVariables(collections: PluginCollection[], variables: PluginVariable[], onWarning = console.warn): DesignToken[] {
   return normalizeFigmaVariables({
@@ -41,9 +43,12 @@ export function createExports(collections: PluginCollection[], variables: Plugin
     warnings.push(message);
     console.warn(message);
   });
+  const typeCounts = Object.fromEntries(tokenTypes.map((type) => [type, tokens.filter((token) => token.type === type).length])) as Record<TokenType, number>;
   return {
     count: tokens.length,
+    typeCounts,
     warnings,
+    skippedVariables: warnings.map((warning) => warning.replace(/^.* skipped: /, "")),
     files: {
       "tokens.json": renderTokensJson(tokens),
       "theme.ts": renderTheme(tokens),

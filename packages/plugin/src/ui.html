@@ -3,19 +3,35 @@
 <body style="font: 13px Inter, sans-serif; padding: 16px; color: var(--figma-color-text); background: var(--figma-color-bg)">
   <h2 style="font-size: 16px; margin: 0 0 8px">Export design tokens</h2>
   <p id="status">현재 파일의 Variables를 읽고 있습니다.</p>
-  <ul id="warnings" style="margin: 0 0 12px; padding-left: 18px"></ul>
+  <details id="result" open style="display: none; margin: 0 0 12px">
+    <summary style="cursor: pointer; font-weight: 600">Export 결과</summary>
+    <ul id="counts" style="margin: 8px 0; padding-left: 18px"></ul>
+    <p id="skippedStatus" style="margin: 8px 0"></p>
+    <ul id="skipped" style="margin: 0; padding-left: 18px"></ul>
+  </details>
   <div id="downloads" style="display: grid; gap: 8px"></div>
   <script>
     let files;
+    const tokenTypes = ["color", "spacing", "radius", "fontSize", "opacity"];
     onmessage = ({ data }) => {
       const message = data.pluginMessage;
       if (message.type === "error") document.getElementById("status").textContent = `오류: ${message.message}`;
       if (message.type === "exports") {
         files = message.files;
         document.getElementById("status").textContent = `${message.count}개 토큰을 읽었습니다.`;
-        document.getElementById("warnings").replaceChildren(...(message.warnings || []).map((warning) => {
+        document.getElementById("result").style.display = "block";
+        document.getElementById("counts").replaceChildren(...tokenTypes.filter((type) => message.typeCounts?.[type]).map((type) => {
           const item = document.createElement("li");
-          item.textContent = warning;
+          item.textContent = `${type} ${message.typeCounts[type]}개`;
+          return item;
+        }));
+        const skippedVariables = message.skippedVariables || [];
+        document.getElementById("skippedStatus").textContent = skippedVariables.length
+          ? "다음 변수는 이름 규칙과 맞지 않아 제외되었습니다."
+          : "모든 변수가 정상적으로 export되었습니다.";
+        document.getElementById("skipped").replaceChildren(...skippedVariables.map((name) => {
+          const item = document.createElement("li");
+          item.textContent = name;
           return item;
         }));
         document.getElementById("downloads").replaceChildren(...Object.keys(files).map((filename) => {
