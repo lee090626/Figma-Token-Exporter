@@ -14,6 +14,14 @@ describe("sync", () => {
     await expect(access(output)).rejects.toThrow();
   });
 
+  it("reports the input path when JSON parsing fails", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
+    const input = join(dir, "input.json");
+    await writeFile(input, "{");
+    await expect(sync({ input, output: join(dir, "tokens.json"), snapshot: join(dir, "snapshot.json"), format: "tokens-json", exportName: "theme", dryRun: true }, () => {}))
+      .rejects.toThrow(`Invalid JSON: ${input}`);
+  });
+
   it("writes output and snapshot", async () => {
     const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
     const input = join(dir, "input.json");

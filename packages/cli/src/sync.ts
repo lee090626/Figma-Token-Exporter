@@ -25,7 +25,14 @@ export interface SyncOptions {
   fileKey?: string;
 }
 
-const readJson = async (path: string) => JSON.parse(await readFile(path, "utf8")) as unknown;
+const readJson = async (path: string) => {
+  try {
+    return JSON.parse(await readFile(path, "utf8")) as unknown;
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error(`Invalid JSON: ${path}`);
+    throw error;
+  }
+};
 const readSnapshot = async (path: string): Promise<DesignToken[]> => {
   try {
     const value = await readJson(path);
