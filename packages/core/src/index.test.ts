@@ -1,3 +1,5 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   diffTokens,
@@ -30,6 +32,15 @@ const numericTokens: DesignToken[] = [
   { name: "fontSize/body", path: ["fontSize", "body"], type: "fontSize", value: 16 },
   { name: "opacity/disabled", path: ["opacity", "disabled"], type: "opacity", value: 0.5 }
 ];
+
+const numericOutputFiles = {
+  "tokens.json": renderTokensJson(numericTokens),
+  "theme.ts": renderTheme(numericTokens),
+  "variables.css": renderCssVariables(numericTokens),
+  "tokens.scss": renderScssVariables(numericTokens),
+  "tailwind.css": renderTailwindTheme(numericTokens),
+  "tokens.dtcg.json": renderDtcgJson(numericTokens)
+};
 
 const figmaInput = { meta: {
   variableCollections: { c: { name: "Brand", defaultModeId: "light", modes: [{ modeId: "light", name: "Light" }, { modeId: "dark", name: "Dark" }] } },
@@ -233,14 +244,7 @@ describe("core", () => {
   });
 
   it("renders numeric token types with correct units, names, and DTCG values", () => {
-    const files = {
-      "tokens.json": renderTokensJson(numericTokens),
-      "theme.ts": renderTheme(numericTokens),
-      "variables.css": renderCssVariables(numericTokens),
-      "tokens.scss": renderScssVariables(numericTokens),
-      "tailwind.css": renderTailwindTheme(numericTokens),
-      "tokens.dtcg.json": renderDtcgJson(numericTokens)
-    };
+    const files = numericOutputFiles;
     expect(Object.keys(files)).toEqual(["tokens.json", "theme.ts", "variables.css", "tokens.scss", "tailwind.css", "tokens.dtcg.json"]);
 
     for (const output of [files["variables.css"], files["tokens.scss"], files["tailwind.css"]]) {
@@ -261,6 +265,17 @@ describe("core", () => {
     expect(dtcg.radius.medium).toEqual({ $type: "dimension", $value: { value: 8, unit: "px" } });
     expect(dtcg.fontSize.body).toEqual({ $type: "dimension", $value: { value: 16, unit: "px" } });
     expect(dtcg.opacity.disabled).toEqual({ $type: "number", $value: 0.5 });
+  });
+
+  it("writes fixture exports for quick manual inspection", async () => {
+    const outputDir = resolve(process.cwd(), "../../export-outputs/figma-float");
+    await mkdir(outputDir, { recursive: true });
+    await Promise.all(Object.entries(numericOutputFiles).map(([filename, contents]) =>
+      writeFile(resolve(outputDir, filename), contents)
+    ));
+
+    await expect(readFile(resolve(outputDir, "variables.css"), "utf8")).resolves.toContain("--font-size-body: 16px;");
+    await expect(readFile(resolve(outputDir, "tokens.dtcg.json"), "utf8")).resolves.toContain('"$type": "number"');
   });
 
   it("finds stable added, changed, and removed diffs", () => {
