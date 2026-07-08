@@ -25,6 +25,7 @@ export interface TokenDiff {
 export interface NormalizeOptions {
   modeId?: string;
   onUnsupported?: (name: string, reason: "unclassified-float" | "unsupported-type", collection?: string) => void;
+  onAliasWarning?: (name: string, reason: "alias-target-missing" | "alias-cycle" | "alias-type-mismatch" | "alias-mode-mismatch", collection?: string) => void;
 }
 
 type RecordValue = Record<string, unknown>;
@@ -81,14 +82,22 @@ function pickModeId(collection: RecordValue | undefined, values: RecordValue, wa
   return firstModeId ?? Object.keys(values)[0];
 }
 
-function resolveValue(variables: RecordValue, variable: RecordValue, modeId: string, seen = new Set<unknown>()): unknown {
+function resolveValue(variables: RecordValue, variable: RecordValue, modeId: string, onWarning?: (name: string, reason: "alias-target-missing" | "alias-cycle") => void, seen = new Set<unknown>()): unknown {
   const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
   const value = values[modeId] ?? values[Object.keys(values)[0]];
   if (!isRecord(value) || value.type !== "VARIABLE_ALIAS" || typeof value.id !== "string") return value;
-  if (seen.has(value.id)) return undefined;
+  const name = typeof variable.name === "string" ? variable.name : value.id;
+  if (seen.has(value.id)) {
+    onWarning?.(name, "alias-cycle");
+    return undefined;
+  }
   seen.add(value.id);
   const target = variables[value.id];
-  return isRecord(target) ? resolveValue(variables, target, modeId, seen) : undefined;
+  if (!isRecord(target)) {
+    onWarning?.(name, "alias-target-missing");
+    return undefined;
+  }
+  return resolveValue(variables, target, modeId, onWarning, seen);
 }
 
 function normalizeValue(value: unknown, type: TokenType): number | ColorValue | undefined {
@@ -126,8 +135,15 @@ export function normalizeFigmaVariables(input: unknown, options: NormalizeOption
     const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
     const modeId = pickModeId(collection, values, options.modeId);
     if (!modeId) continue;
-    const value = normalizeValue(resolveValue(variables, variable, modeId), type);
-    if (value === undefined) continue;
+    const warnAlias = (name: string, reason: "alias-target-missing" | "alias-cycle" | "alias-type-mismatch" | "alias-mode-mismatch") =>
+      options.onAliasWarning?.(name, reason, typeof collection?.name === "string" ? collection.name : undefined);
+    const selectedValue = values[modeId] ?? values[Object.keys(values)[0]];
+    const rawValue = resolveValue(variables, variable, modeId, warnAlias);
+    const value = normalizeValue(rawValue, type);
+    if (value === undefined) {
+      if (isRecord(selectedValue) && selectedValue.type === "VARIABLE_ALIAS" && rawValue !== undefined) warnAlias(variable.name, "alias-type-mismatch");
+      continue;
+    }
     const modes = Array.isArray(collection?.modes) ? collection.modes.filter(isRecord) : [];
     const mode = modes.find((candidate) => candidate.modeId === modeId);
     const path = variable.name.split("/").filter(Boolean);

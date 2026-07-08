@@ -60,11 +60,18 @@ const skippedMessage = (name: string, reason: "unclassified-float" | "unsupporte
   const suffix = collection ? ` (collection: ${collection})` : "";
   return reason === "unclassified-float" ? `unclassified FLOAT variable skipped: ${name}${suffix}` : `unsupported type skipped: ${name}${suffix}`;
 };
+const aliasSkippedMessage = (name: string, reason: "alias-target-missing" | "alias-cycle" | "alias-type-mismatch" | "alias-mode-mismatch", collection?: string) => {
+  const suffix = collection ? ` (collection: ${collection})` : "";
+  return `alias ${reason.replace(/^alias-/, "").replace(/-/g, " ")} skipped: ${name}${suffix}`;
+};
 
 export async function sync(options: SyncOptions, log = console.log, warn = console.warn): Promise<void> {
   if (!options.input && (!options.figmaToken || !options.fileKey)) throw new Error("--input 또는 FIGMA_TOKEN과 FIGMA_FILE_KEY가 필요합니다.");
   const raw = options.input ? await readJson(options.input) : await fetchFigmaVariables(options.fileKey!, options.figmaToken!);
-  const current = isDesignTokenArray(raw) ? raw : normalizeFigmaVariables(raw, { onUnsupported: (name, reason, collection) => warn(skippedMessage(name, reason, collection)) });
+  const current = isDesignTokenArray(raw) ? raw : normalizeFigmaVariables(raw, {
+    onUnsupported: (name, reason, collection) => warn(skippedMessage(name, reason, collection)),
+    onAliasWarning: (name, reason, collection) => warn(aliasSkippedMessage(name, reason, collection))
+  });
   const diffs = diffTokens(await readSnapshot(options.snapshot), current);
   for (const type of ["added", "changed", "removed"] as const) log(`${type[0].toUpperCase()}${type.slice(1)}: ${diffs.filter((diff) => diff.type === type).length}`);
   diffs.forEach((diff) => log(`${diff.type} ${diff.token.path.join("/")}`));

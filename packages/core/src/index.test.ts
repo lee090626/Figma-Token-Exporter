@@ -269,6 +269,28 @@ describe("core", () => {
     expect(diffTokens(old, current).map(({ type, token }) => `${type}:${token.name}`)).toEqual(["added:radius/medium", "removed:spacing/layout/card/gap", "changed:spacing/small"]);
   });
 
+  it("warns when alias targets are missing, cyclic, or the wrong type", () => {
+    const warnings: string[] = [];
+    const result = normalizeFigmaVariables({
+      variableCollections: { c: { name: "Brand", defaultModeId: "light", modes: [{ modeId: "light", name: "Light" }] } },
+      variables: {
+        missing: { name: "color/missing", variableCollectionId: "c", resolvedType: "COLOR", valuesByMode: { light: { type: "VARIABLE_ALIAS", id: "none" } } },
+        cycleA: { name: "color/cycle-a", variableCollectionId: "c", resolvedType: "COLOR", valuesByMode: { light: { type: "VARIABLE_ALIAS", id: "cycleB" } } },
+        cycleB: { name: "color/cycle-b", variableCollectionId: "c", resolvedType: "COLOR", valuesByMode: { light: { type: "VARIABLE_ALIAS", id: "cycleA" } } },
+        wrongTypeAlias: { name: "color/wrong-type", variableCollectionId: "c", resolvedType: "COLOR", valuesByMode: { light: { type: "VARIABLE_ALIAS", id: "spacing" } } },
+        spacing: { name: "spacing/base", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 8 } }
+      }
+    }, { onAliasWarning: (name, reason, collection) => warnings.push(`${reason}:${name}:${collection ?? ""}`) });
+
+    expect(result.map((token) => token.name)).toEqual(["spacing/base"]);
+    expect(warnings).toEqual([
+      "alias-target-missing:color/missing:Brand",
+      "alias-cycle:color/cycle-a:Brand",
+      "alias-cycle:color/cycle-b:Brand",
+      "alias-type-mismatch:color/wrong-type:Brand"
+    ]);
+  });
+
   it("rejects invalid exports, duplicate paths, and invalid normalized tokens", () => {
     expect(isDesignTokenArray(tokens)).toBe(true);
     expect(isDesignTokenArray([{ name: "a", path: ["a"], type: "number", value: 1 }])).toBe(false);
