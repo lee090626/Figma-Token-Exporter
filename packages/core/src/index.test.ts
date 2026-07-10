@@ -240,6 +240,121 @@ describe("core", () => {
     expect(skipped).toEqual(["unclassified-float:RandomName - 5:Unknown"]);
   });
 
+  it("classifies collection fallback by words instead of matching substrings", () => {
+    const skipped: string[] = [];
+    const result = normalizeFigmaVariables({
+      variableCollections: {
+        shape: { name: "sHaPe / Corners", modes: [{ modeId: "light", name: "Light" }] },
+        font: { name: "Font Size", modes: [{ modeId: "light", name: "Light" }] },
+        context: { name: "Context", modes: [{ modeId: "light", name: "Light" }] },
+        shapeshifter: { name: "Shapeshifter", modes: [{ modeId: "light", name: "Light" }] }
+      },
+      variables: {
+        corner: { name: "2XL", variableCollectionId: "shape", resolvedType: "FLOAT", valuesByMode: { light: 28 } },
+        body: { name: "Body 16px", variableCollectionId: "font", resolvedType: "FLOAT", valuesByMode: { light: 16 } },
+        context: { name: "100%", variableCollectionId: "context", resolvedType: "FLOAT", valuesByMode: { light: 100 } },
+        shapeshifter: { name: "-4", variableCollectionId: "shapeshifter", resolvedType: "FLOAT", valuesByMode: { light: -4 } }
+      }
+    }, { onUnsupported: (name) => skipped.push(name) });
+
+    expect(result.map((token) => `${token.type}:${token.name}`)).toEqual(["fontSize:Body 16px", "radius:2XL"]);
+    expect(skipped).toEqual(["100%", "-4"]);
+  });
+
+  it("keeps finite numeric edge values and skips non-finite values", () => {
+    const result = normalizeFigmaVariables({
+      variableCollections: { c: { name: "Shape", modes: [{ modeId: "light", name: "Light" }] } },
+      variables: {
+        zero: { name: "radius/0", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 0 } },
+        negative: { name: "spacing/-4", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: -4 } },
+        fraction: { name: "radius/0.5", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 0.5 } },
+        large: { name: "spacing/2XL", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: Number.MAX_SAFE_INTEGER } },
+        nan: { name: "radius/invalid", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: Number.NaN } },
+        infinity: { name: "color/invalid", variableCollectionId: "c", resolvedType: "COLOR", valuesByMode: { light: { r: Infinity, g: 0, b: 0, a: 1 } } }
+      }
+    });
+
+    expect(result.map((token) => `${token.name}:${token.value}`)).toEqual([
+      "radius/0:0",
+      "radius/0.5:0.5",
+      "spacing/-4:-4",
+      `spacing/2XL:${Number.MAX_SAFE_INTEGER}`
+    ]);
+    expect(isDesignTokenArray([{ ...tokens[0], value: { r: Infinity, g: 0, b: 0, a: 1 } }])).toBe(false);
+    expect(isDesignTokenArray([{ ...tokens[3], value: Number.NaN }])).toBe(false);
+  });
+
+  it("keeps signed and percent token names distinct in all export formats", () => {
+    const numericNames: DesignToken[] = [
+      { name: "radius/-4", path: ["radius", "-4"], type: "radius", value: -4 },
+      { name: "radius/4", path: ["radius", "4"], type: "radius", value: 4 },
+      { name: "radius/0.5", path: ["radius", "0.5"], type: "radius", value: 0.5 },
+      { name: "radius/05", path: ["radius", "05"], type: "radius", value: 5 },
+      { name: "opacity/100%", path: ["opacity", "100%"], type: "opacity", value: 1 },
+      { name: "opacity/100", path: ["opacity", "100"], type: "opacity", value: 100 }
+    ];
+    const files = {
+      "tokens.json": renderTokensJson(numericNames),
+      "theme.ts": renderTheme(numericNames),
+      "variables.css": renderCssVariables(numericNames),
+      "tokens.scss": renderScssVariables(numericNames),
+      "tailwind.css": renderTailwindTheme(numericNames),
+      "tokens.dtcg.json": renderDtcgJson(numericNames)
+    };
+
+    expect(JSON.parse(files["tokens.json"])).toEqual(numericNames);
+    expect(files["theme.ts"]).toContain('"negative4": "-4px"');
+    expect(files["theme.ts"]).toContain('"_4": "4px"');
+    expect(files["theme.ts"]).toContain('"_0Dot5": "0.5px"');
+    expect(files["theme.ts"]).toContain('"_05": "5px"');
+    expect(files["theme.ts"]).toContain('"_100Percent": 1');
+    expect(files["theme.ts"]).toContain('"_100": 100');
+    for (const output of [files["variables.css"], files["tokens.scss"], files["tailwind.css"]]) {
+      expect(output).toContain("radius-negative-4: -4px;");
+      expect(output).toContain("radius-4: 4px;");
+      expect(output).toContain("radius-0-dot-5: 0.5px;");
+      expect(output).toContain("radius-05: 5px;");
+      expect(output).toContain("opacity-100-percent: 1;");
+      expect(output).toContain("opacity-100: 100;");
+    }
+    const dtcg = JSON.parse(files["tokens.dtcg.json"]);
+    expect(dtcg.radius["-4"].$value).toEqual({ value: -4, unit: "px" });
+    expect(dtcg.opacity["100%"].$value).toBe(1);
+  });
+
+  it("skips variables with no export path and rejects pathless normalized tokens", () => {
+    expect(normalizeFigmaVariables({
+      variables: {
+        unnamed: { name: "///", resolvedType: "COLOR", valuesByMode: { light: { r: 1, g: 1, b: 1, a: 1 } } }
+      }
+    })).toEqual([]);
+    expect(isDesignTokenArray([{ ...tokens[0], path: [] }])).toBe(false);
+  });
+
+  it("resolves direct, chained, and cross-collection aliases while preserving mode policy", () => {
+    const warnings: string[] = [];
+    const result = normalizeFigmaVariables({
+      variableCollections: {
+        light: { name: "Light Colors", defaultModeId: "light", modes: [{ modeId: "light", name: "Light" }, { modeId: "dark", name: "Dark" }] },
+        semantic: { name: "Semantic", defaultModeId: "light", modes: [{ modeId: "light", name: "Light" }, { modeId: "dark", name: "Dark" }] }
+      },
+      variables: {
+        base: { name: "color/base", variableCollectionId: "light", resolvedType: "COLOR", valuesByMode: { light: { r: 1, g: 1, b: 1, a: 1 }, dark: { r: 0, g: 0, b: 0, a: 1 } } },
+        direct: { name: "color/direct", variableCollectionId: "semantic", resolvedType: "COLOR", valuesByMode: { light: { type: "VARIABLE_ALIAS", id: "base" }, dark: { type: "VARIABLE_ALIAS", id: "base" } } },
+        chained: { name: "color/chained", variableCollectionId: "semantic", resolvedType: "COLOR", valuesByMode: { light: { type: "VARIABLE_ALIAS", id: "direct" } } },
+        fallback: { name: "color/fallback", variableCollectionId: "semantic", resolvedType: "COLOR", valuesByMode: { light: { r: 0.5, g: 0.5, b: 0.5, a: 1 } } }
+      }
+    }, { modeId: "missing", onAliasWarning: (name, reason) => warnings.push(`${reason}:${name}`) });
+
+    expect(result.map((token) => `${token.name}:${JSON.stringify(token.value)}`)).toEqual([
+      "color/base:{\"r\":255,\"g\":255,\"b\":255,\"a\":1}",
+      "color/chained:{\"r\":255,\"g\":255,\"b\":255,\"a\":1}",
+      "color/direct:{\"r\":255,\"g\":255,\"b\":255,\"a\":1}",
+      "color/fallback:{\"r\":128,\"g\":128,\"b\":128,\"a\":1}"
+    ]);
+    expect(warnings).toEqual([]);
+  });
+
   it("renders all Phase 1 formats from normalized tokens", () => {
     expect(tokens.map(generateVariableName)).toContain("color-brand-primary");
     expect(tokens.map(generateVariableName)).toContain("color-brand-secondary");

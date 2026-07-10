@@ -35,17 +35,26 @@ const dimensionTypes: TokenType[] = ["spacing", "radius", "fontSize"];
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
 const isColorValue = (value: unknown): value is ColorValue =>
   isRecord(value) &&
-  ["r", "g", "b", "a"].every((key) => typeof value[key] === "number");
+  ["r", "g", "b", "a"].every((key) => isFiniteNumber(value[key]));
+
+const words = (value: string): string[] => value
+  .replace(/%/g, " percent ")
+  .replace(/(^|[^A-Za-z0-9])-([0-9])/g, "$1 negative $2")
+  .replace(/([0-9])\.([0-9])/g, "$1 dot $2")
+  .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+  .match(/[A-Za-z0-9]+/g) ?? [];
 
 export function isDesignTokenArray(value: unknown): value is DesignToken[] {
   return Array.isArray(value) && value.every((token) =>
     isRecord(token) &&
     typeof token.name === "string" &&
-    Array.isArray(token.path) && token.path.every((part) => typeof part === "string") &&
+    Array.isArray(token.path) && token.path.length > 0 && token.path.every((part) => typeof part === "string") &&
     supportedTypes.includes(token.type as TokenType) &&
-    (typeof token.value === "number" || isColorValue(token.value))
+    (isFiniteNumber(token.value) || isColorValue(token.value))
   );
 }
 
@@ -62,10 +71,10 @@ const tokenTypeFromName = (name: string, resolvedType: unknown): TokenType | und
 
 const tokenTypeFromCollection = (collection: RecordValue | undefined, resolvedType: unknown): TokenType | undefined => {
   if (resolvedType !== "FLOAT" || typeof collection?.name !== "string") return undefined;
-  const name = collection.name.toLowerCase();
+  const name = words(collection.name.toLowerCase());
   if (name.includes("spacing") || name.includes("gap")) return "spacing";
   if (name.includes("radius") || name.includes("corner") || name.includes("shape")) return "radius";
-  if (name.includes("fontsize") || name.includes("font-size") || name.includes("font size") || name.includes("text")) return "fontSize";
+  if (name.includes("fontsize") || (name.includes("font") && name.includes("size")) || name.includes("text")) return "fontSize";
   if (name.includes("opacity") || name.includes("alpha")) return "opacity";
   return undefined;
 };
@@ -105,7 +114,7 @@ function resolveValue(variables: RecordValue, variable: RecordValue, modeId: str
 }
 
 function normalizeValue(value: unknown, type: TokenType): number | ColorValue | undefined {
-  if (type === "color" && isRecord(value) && ["r", "g", "b"].every((key) => typeof value[key] === "number")) {
+  if (type === "color" && isRecord(value) && ["r", "g", "b"].every((key) => isFiniteNumber(value[key])) && (value.a === undefined || isFiniteNumber(value.a))) {
     return {
       r: clamp(0, to255(value.r as number), 255),
       g: clamp(0, to255(value.g as number), 255),
@@ -113,7 +122,7 @@ function normalizeValue(value: unknown, type: TokenType): number | ColorValue | 
       a: clamp(0, typeof value.a === "number" ? value.a : 1, 1)
     };
   }
-  if (type !== "color" && typeof value === "number") return value;
+  if (type !== "color" && isFiniteNumber(value)) return value;
   return undefined;
 }
 
@@ -136,6 +145,8 @@ export function normalizeFigmaVariables(input: unknown, options: NormalizeOption
       options.onUnsupported?.(variable.name, variable.resolvedType === "FLOAT" ? "unclassified-float" : "unsupported-type", typeof collection?.name === "string" ? collection.name : undefined);
       continue;
     }
+    const path = variable.name.split("/").filter(Boolean);
+    if (!path.length) continue;
     const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
     const modeId = pickModeId(collection, values, options.modeId);
     if (!modeId) continue;
@@ -150,7 +161,6 @@ export function normalizeFigmaVariables(input: unknown, options: NormalizeOption
     }
     const modes = Array.isArray(collection?.modes) ? collection.modes.filter(isRecord) : [];
     const mode = modes.find((candidate) => candidate.modeId === modeId);
-    const path = variable.name.split("/").filter(Boolean);
     result.push({
       name: variable.name,
       path: typeFromName ? path : [type, ...path],
@@ -186,7 +196,6 @@ export function diffTokens(previous: DesignToken[], current: DesignToken[]): Tok
 
 export const renderTokensJson = (tokens: DesignToken[]) => `${JSON.stringify(tokens, null, 2)}\n`;
 
-const words = (value: string) => value.replace(/([a-z0-9])([A-Z])/g, "$1 $2").match(/[A-Za-z0-9]+/g) ?? [];
 const camelKey = (value: string, fallback = "default") => {
   let key = words(value).map((word, index) => index ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word.toLowerCase()).join("") || fallback;
   if (!/^[A-Za-z_$]/.test(key)) key = `_${key}`;
