@@ -33,13 +33,22 @@ const numericTokens: DesignToken[] = [
   { name: "opacity/disabled", path: ["opacity", "disabled"], type: "opacity", value: 0.5 }
 ];
 
+const shapeFallbackFixture = {
+  variableCollections: { shape: { name: "Shape", defaultModeId: "light", modes: [{ modeId: "light", name: "Light" }] } },
+  variables: {
+    extraLarge: { name: "ExtraLarge - 28", variableCollectionId: "shape", resolvedType: "FLOAT", valuesByMode: { light: 28 } }
+  }
+};
+
+const outputTokens = [...numericTokens, ...normalizeFigmaVariables(shapeFallbackFixture)];
+
 const numericOutputFiles = {
-  "tokens.json": renderTokensJson(numericTokens),
-  "theme.ts": renderTheme(numericTokens),
-  "variables.css": renderCssVariables(numericTokens),
-  "tokens.scss": renderScssVariables(numericTokens),
-  "tailwind.css": renderTailwindTheme(numericTokens),
-  "tokens.dtcg.json": renderDtcgJson(numericTokens)
+  "tokens.json": renderTokensJson(outputTokens),
+  "theme.ts": renderTheme(outputTokens),
+  "variables.css": renderCssVariables(outputTokens),
+  "tokens.scss": renderScssVariables(outputTokens),
+  "tailwind.css": renderTailwindTheme(outputTokens),
+  "tokens.dtcg.json": renderDtcgJson(outputTokens)
 };
 
 const figmaInput = { meta: {
@@ -260,11 +269,20 @@ describe("core", () => {
     expect(files["theme.ts"]).toContain('"disabled": 0.5');
     expect(files["theme.ts"]).not.toContain('"disabled": "0.5"');
 
-    const dtcg = JSON.parse(renderDtcgJson(numericTokens));
+    const dtcg = JSON.parse(files["tokens.dtcg.json"]);
     expect(dtcg.spacing.small).toEqual({ $type: "dimension", $value: { value: 8, unit: "px" } });
     expect(dtcg.radius.medium).toEqual({ $type: "dimension", $value: { value: 8, unit: "px" } });
+    expect(dtcg.radius["ExtraLarge - 28"]).toEqual({ $type: "dimension", $value: { value: 28, unit: "px" } });
     expect(dtcg.fontSize.body).toEqual({ $type: "dimension", $value: { value: 16, unit: "px" } });
     expect(dtcg.opacity.disabled).toEqual({ $type: "number", $value: 0.5 });
+
+    expect(JSON.parse(files["tokens.json"])).toContainEqual(expect.objectContaining({
+      name: "ExtraLarge - 28", path: ["radius", "ExtraLarge - 28"], type: "radius", value: 28
+    }));
+    expect(files["theme.ts"]).toContain('"extraLarge28": "28px"');
+    for (const output of [files["variables.css"], files["tokens.scss"], files["tailwind.css"]]) {
+      expect(output).toContain("radius-extra-large-28: 28px;");
+    }
   });
 
   it("writes fixture exports for quick manual inspection", async () => {
@@ -274,8 +292,8 @@ describe("core", () => {
       writeFile(resolve(outputDir, filename), contents)
     ));
 
-    await expect(readFile(resolve(outputDir, "variables.css"), "utf8")).resolves.toContain("--font-size-body: 16px;");
-    await expect(readFile(resolve(outputDir, "tokens.dtcg.json"), "utf8")).resolves.toContain('"$type": "number"');
+    await expect(readFile(resolve(outputDir, "variables.css"), "utf8")).resolves.toContain("--radius-extra-large-28: 28px;");
+    await expect(readFile(resolve(outputDir, "tokens.dtcg.json"), "utf8")).resolves.toContain('"ExtraLarge - 28"');
   });
 
   it("finds stable added, changed, and removed diffs", () => {
