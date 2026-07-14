@@ -1,4 +1,4 @@
-export type TokenType = "color" | "spacing" | "radius" | "fontSize" | "opacity";
+export type TokenType = "color" | "spacing" | "radius" | "borderWidth" | "size" | "fontSize" | "opacity";
 
 export interface ColorValue {
   r: number;
@@ -29,8 +29,8 @@ export interface NormalizeOptions {
 }
 
 type RecordValue = Record<string, unknown>;
-const supportedTypes: TokenType[] = ["color", "spacing", "radius", "fontSize", "opacity"];
-const dimensionTypes: TokenType[] = ["spacing", "radius", "fontSize"];
+const supportedTypes: TokenType[] = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
+const dimensionTypes: TokenType[] = ["spacing", "radius", "borderWidth", "size", "fontSize"];
 
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -64,6 +64,8 @@ const tokenTypeFromName = (name: string, resolvedType: unknown): TokenType | und
   if (resolvedType !== "FLOAT") return undefined;
   if (first === "spacing") return "spacing";
   if (first === "radius") return "radius";
+  if (first === "borderwidth") return "borderWidth";
+  if (first === "size") return "size";
   if (first === "fontsize") return "fontSize";
   if (first === "opacity") return "opacity";
   return undefined;
@@ -74,7 +76,9 @@ const tokenTypeFromCollection = (collection: RecordValue | undefined, resolvedTy
   const name = words(collection.name.toLowerCase());
   if (name.includes("spacing") || name.includes("gap")) return "spacing";
   if (name.includes("radius") || name.includes("corner") || name.includes("shape")) return "radius";
+  if (name.includes("borderwidth") || (name.includes("border") && name.includes("width")) || name.includes("stroke")) return "borderWidth";
   if (name.includes("fontsize") || (name.includes("font") && name.includes("size")) || name.includes("text")) return "fontSize";
+  if (name.includes("size")) return "size";
   if (name.includes("opacity") || name.includes("alpha")) return "opacity";
   return undefined;
 };
@@ -203,7 +207,7 @@ const camelKey = (value: string, fallback = "default") => {
 };
 const kebabKey = (value: string) => words(value).map((word) => word.toLowerCase()).join("-");
 export const generateVariableName = (token: DesignToken) => {
-  const prefix = token.type === "fontSize" ? "font-size" : token.type;
+  const prefix = token.type === "fontSize" ? "font-size" : token.type === "borderWidth" ? "border-width" : token.type;
   const first = token.path[0]?.toLowerCase().replace(/[-_\s]/g, "");
   const hasPrefix = first === prefix.replace(/-/g, "");
   const rest = token.path.slice(hasPrefix ? 1 : 0).map(kebabKey).filter(Boolean).join("-");

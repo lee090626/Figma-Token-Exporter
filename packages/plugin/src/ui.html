@@ -12,7 +12,7 @@
   <div id="downloads" style="display: grid; gap: 8px"></div>
   <script>
     let files;
-    const tokenTypes = ["color", "spacing", "radius", "fontSize", "opacity"];
+    const tokenTypes = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
     onmessage = ({ data }) => {
       const message = data.pluginMessage;
       if (message.type === "error") document.getElementById("status").textContent = `오류: ${message.message}`;

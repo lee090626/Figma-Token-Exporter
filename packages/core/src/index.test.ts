@@ -22,6 +22,8 @@ const tokens: DesignToken[] = [
   { name: "spacing/small", path: ["spacing", "small"], type: "spacing", value: 8 },
   { name: "spacing/layout/card/gap", path: ["spacing", "layout", "card", "gap"], type: "spacing", value: 24 },
   { name: "radius/medium", path: ["radius", "medium"], type: "radius", value: 8 },
+  { name: "borderWidth/thin", path: ["borderWidth", "thin"], type: "borderWidth", value: 1 },
+  { name: "size/icon", path: ["size", "icon"], type: "size", value: 20 },
   { name: "fontSize/body", path: ["fontSize", "body"], type: "fontSize", value: 16 },
   { name: "opacity/disabled", path: ["opacity", "disabled"], type: "opacity", value: 0.5 }
 ];
@@ -29,6 +31,8 @@ const tokens: DesignToken[] = [
 const numericTokens: DesignToken[] = [
   { name: "spacing/small", path: ["spacing", "small"], type: "spacing", value: 8 },
   { name: "radius/medium", path: ["radius", "medium"], type: "radius", value: 8 },
+  { name: "borderWidth/thin", path: ["borderWidth", "thin"], type: "borderWidth", value: 1 },
+  { name: "size/icon", path: ["size", "icon"], type: "size", value: 20 },
   { name: "fontSize/body", path: ["fontSize", "body"], type: "fontSize", value: 16 },
   { name: "opacity/disabled", path: ["opacity", "disabled"], type: "opacity", value: 0.5 }
 ];
@@ -261,6 +265,28 @@ describe("core", () => {
     expect(skipped).toEqual(["100%", "-4"]);
   });
 
+  it("classifies border widths and sizes from names and collections", () => {
+    const result = normalizeFigmaVariables({
+      variableCollections: {
+        border: { name: "Border Width", modes: [{ modeId: "light", name: "Light" }] },
+        size: { name: "Size", modes: [{ modeId: "light", name: "Light" }] }
+      },
+      variables: {
+        namedBorder: { name: "border-width/thin", variableCollectionId: "border", resolvedType: "FLOAT", valuesByMode: { light: 1 } },
+        namedSize: { name: "size/icon", variableCollectionId: "size", resolvedType: "FLOAT", valuesByMode: { light: 20 } },
+        fallbackBorder: { name: "Hairline", variableCollectionId: "border", resolvedType: "FLOAT", valuesByMode: { light: 0.5 } },
+        fallbackSize: { name: "Avatar", variableCollectionId: "size", resolvedType: "FLOAT", valuesByMode: { light: 32 } }
+      }
+    });
+
+    expect(result.map((token) => `${token.type}:${token.path.join("/")}:${token.value}`)).toEqual([
+      "borderWidth:border-width/thin:1",
+      "borderWidth:borderWidth/Hairline:0.5",
+      "size:size/Avatar:32",
+      "size:size/icon:20"
+    ]);
+  });
+
   it("keeps finite numeric edge values and skips non-finite values", () => {
     const result = normalizeFigmaVariables({
       variableCollections: { c: { name: "Shape", modes: [{ modeId: "light", name: "Light" }] } },
@@ -374,12 +400,16 @@ describe("core", () => {
     for (const output of [files["variables.css"], files["tokens.scss"], files["tailwind.css"]]) {
       expect(output).toContain("spacing-small: 8px;");
       expect(output).toContain("radius-medium: 8px;");
+      expect(output).toContain("border-width-thin: 1px;");
+      expect(output).toContain("size-icon: 20px;");
       expect(output).toContain("font-size-body: 16px;");
       expect(output).toContain("opacity-disabled: 0.5;");
       expect(output).not.toContain("opacity-disabled: 0.5px;");
     }
     expect(files["theme.ts"]).toContain('"small": "8px"');
     expect(files["theme.ts"]).toContain('"medium": "8px"');
+    expect(files["theme.ts"]).toContain('"thin": "1px"');
+    expect(files["theme.ts"]).toContain('"icon": "20px"');
     expect(files["theme.ts"]).toContain('"body": "16px"');
     expect(files["theme.ts"]).toContain('"disabled": 0.5');
     expect(files["theme.ts"]).not.toContain('"disabled": "0.5"');
@@ -388,6 +418,8 @@ describe("core", () => {
     expect(dtcg.spacing.small).toEqual({ $type: "dimension", $value: { value: 8, unit: "px" } });
     expect(dtcg.radius.medium).toEqual({ $type: "dimension", $value: { value: 8, unit: "px" } });
     expect(dtcg.radius["ExtraLarge - 28"]).toEqual({ $type: "dimension", $value: { value: 28, unit: "px" } });
+    expect(dtcg.borderWidth.thin).toEqual({ $type: "dimension", $value: { value: 1, unit: "px" } });
+    expect(dtcg.size.icon).toEqual({ $type: "dimension", $value: { value: 20, unit: "px" } });
     expect(dtcg.fontSize.body).toEqual({ $type: "dimension", $value: { value: 16, unit: "px" } });
     expect(dtcg.opacity.disabled).toEqual({ $type: "number", $value: 0.5 });
 

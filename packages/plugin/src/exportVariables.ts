@@ -34,7 +34,7 @@ const aliasSkippedMessage = (name: string, reason: "alias-target-missing" | "ali
   const suffix = collection ? ` (collection: ${collection})` : "";
   return `alias ${reason.replace(/^alias-/, "").replace(/-/g, " ")} skipped: ${name}${suffix}`;
 };
-const tokenTypes: TokenType[] = ["color", "spacing", "radius", "fontSize", "opacity"];
+const tokenTypes: TokenType[] = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
 
 export function exportVariables(collections: PluginCollection[], variables: PluginVariable[], onWarning = console.warn): DesignToken[] {
   return normalizeFigmaVariables({

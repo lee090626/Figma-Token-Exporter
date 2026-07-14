@@ -14,10 +14,30 @@ it("creates files that can be downloaded directly", () => {
     [{ id: "v", name: "spacing/base", description: "", variableCollectionId: "c", resolvedType: "FLOAT", valuesByMode: { light: 8 } }]
   );
   expect(result.count).toBe(1);
-  expect(result.typeCounts).toEqual({ color: 0, spacing: 1, radius: 0, fontSize: 0, opacity: 0 });
+  expect(result.typeCounts).toEqual({ color: 0, spacing: 1, radius: 0, borderWidth: 0, size: 0, fontSize: 0, opacity: 0 });
   expect(result.files["tokens.json"]).toContain('"value": 8');
   expect(result.files["theme.ts"]).toContain('"base": "8px"');
   expect(Object.keys(result.files)).toEqual(["tokens.json", "theme.ts", "variables.css", "tokens.scss", "tailwind.css", "tokens.dtcg.json"]);
+});
+
+it("exports border widths and sizes from Plugin variables", () => {
+  const result = createExports(
+    [
+      { id: "border", name: "Border Width", modes: [{ modeId: "light", name: "Light" }] },
+      { id: "size", name: "Size", modes: [{ modeId: "light", name: "Light" }] }
+    ],
+    [
+      { id: "border", name: "Hairline", description: "", variableCollectionId: "border", resolvedType: "FLOAT", valuesByMode: { light: 0.5 } },
+      { id: "size", name: "Avatar", description: "", variableCollectionId: "size", resolvedType: "FLOAT", valuesByMode: { light: 32 } }
+    ]
+  );
+
+  expect(result.typeCounts).toMatchObject({ borderWidth: 1, size: 1 });
+  expect(result.files["theme.ts"]).toContain('"borderWidth": {\n    "hairline": "0.5px"');
+  expect(result.files["theme.ts"]).toContain('"size": {\n    "avatar": "32px"');
+  expect(result.files["tokens.dtcg.json"]).toContain('"$type": "dimension"');
+  expect(result.files["variables.css"]).toContain("--border-width-hairline: 0.5px;");
+  expect(result.files["variables.css"]).toContain("--size-avatar: 32px;");
 });
 
 it("classifies unprefixed FLOAT variables from collection names", () => {

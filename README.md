@@ -51,7 +51,7 @@ npx figma-token sync --format tokens-dtcg-json --output ./tokens.dtcg.json
 
 `tokens-json`은 normalized token 배열을, 나머지 포맷은 이 배열만 입력으로 변환합니다. `--dry-run`은 입력과 snapshot을 읽고 diff를 출력하지만 파일은 쓰지 않습니다.
 
-Phase 1 지원 타입은 `color`, `spacing`, `radius`, `fontSize`, `opacity`입니다. Figma `FLOAT` 변수는 이름의 첫 경로 segment로 타입을 판정합니다. 예: `spacing/small`, `fontSize/body`. 그 외 타입은 export하지 않고 skip 로그만 남깁니다.
+Phase 1 지원 타입은 `color`, `spacing`, `radius`, `borderWidth`, `size`, `fontSize`, `opacity`입니다. Figma `FLOAT` 변수는 이름의 첫 경로 segment로 타입을 판정합니다. 예: `spacing/small`, `borderWidth/thin`, `fontSize/body`. 그 외 타입은 export하지 않고 skip 로그만 남깁니다.
 
 REST API에는 Enterprise 조직의 Full seat, file 접근 권한과 `file_variables:read` scope가 필요합니다. 일반 사용자는 Plugin 방식을 사용합니다. Phase 1은 default mode 하나만 export하고 alias는 최종 값으로 치환합니다. Alias target에 선택된 mode 값이 없으면 다른 mode로 대체하지 않고 skip하며 warning을 출력합니다.
 
