@@ -1,21 +1,6 @@
-# @lee090626/core
+# Core workspace package
 
-`@lee090626/core` normalizes Figma Variables data and renders design token files. It has no Figma API or file-system dependency.
-
-## Install
-
-```bash
-npm install @lee090626/core
-```
-
-## Basic usage
-
-```ts
-import { normalizeFigmaVariables, renderTheme } from "@lee090626/core";
-
-const tokens = normalizeFigmaVariables(figmaVariables);
-const theme = renderTheme(tokens);
-```
+This internal package normalizes Figma Variables data and renders design token files for the CLI and Figma Plugin. Install `figma-token` to use the public CLI.
 
 ## Exports
 

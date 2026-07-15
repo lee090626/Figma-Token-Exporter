@@ -1,6 +1,6 @@
 {
   "name": "figma-token",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Export Figma Variables to design token files.",
   "license": "MIT",
   "type": "module",
@@ -19,9 +19,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@lee090626/core": "workspace:*",
     "commander": "^14.0.0",
     "dotenv": "^17.0.0"
   },
-  "devDependencies": { "tsup": "^8.5.0" }
+  "devDependencies": {
+    "@lee090626/core": "workspace:*",
+    "tsup": "^8.5.0"
+  }
 }
