@@ -287,6 +287,45 @@ describe("core", () => {
     ]);
   });
 
+  it("keeps existing type exports stable without border widths or sizes", () => {
+    const skipped: string[] = [];
+    const result = normalizeFigmaVariables({
+      variableCollections: {
+        spacing: { name: "Spacing", modes: [{ modeId: "light", name: "Light" }] },
+        shape: { name: "Shape", modes: [{ modeId: "light", name: "Light" }] },
+        text: { name: "Text Styles", modes: [{ modeId: "light", name: "Light" }] },
+        opacity: { name: "Opacity", modes: [{ modeId: "light", name: "Light" }] },
+        borderColors: { name: "Border Colors", modes: [{ modeId: "light", name: "Light" }] }
+      },
+      variables: {
+        color: { name: "color/primary", resolvedType: "COLOR", valuesByMode: { light: { r: 1, g: 0, b: 0, a: 1 } } },
+        spacing: { name: "Grid", variableCollectionId: "spacing", resolvedType: "FLOAT", valuesByMode: { light: 8 } },
+        radius: { name: "Small", variableCollectionId: "shape", resolvedType: "FLOAT", valuesByMode: { light: 4 } },
+        fontSize: { name: "Body", variableCollectionId: "text", resolvedType: "FLOAT", valuesByMode: { light: 16 } },
+        opacity: { name: "Disabled", variableCollectionId: "opacity", resolvedType: "FLOAT", valuesByMode: { light: 0.5 } },
+        borderColor: { name: "Divider", variableCollectionId: "borderColors", resolvedType: "FLOAT", valuesByMode: { light: 1 } }
+      }
+    }, { onUnsupported: (name) => skipped.push(name) });
+    const files = {
+      theme: renderTheme(result),
+      css: renderCssVariables(result),
+      dtcg: JSON.parse(renderDtcgJson(result))
+    };
+
+    expect(result.map((token) => `${token.type}:${token.value}`)).toEqual(["color:[object Object]", "opacity:0.5", "radius:4", "spacing:8", "fontSize:16"]);
+    expect(skipped).toEqual(["Divider"]);
+    expect(files.theme).toContain('"fontSize": {\n    "body": "16px"');
+    expect(files.theme).not.toContain('"size"');
+    expect(files.theme).not.toContain('"borderWidth"');
+    expect(files.css).toContain("--color-primary: #ff0000;");
+    expect(files.css).toContain("--spacing-grid: 8px;");
+    expect(files.css).toContain("--radius-small: 4px;");
+    expect(files.css).toContain("--font-size-body: 16px;");
+    expect(files.css).toContain("--opacity-disabled: 0.5;");
+    expect(files.dtcg.fontSize.Body).toEqual({ $type: "dimension", $value: { value: 16, unit: "px" } });
+    expect(files.dtcg.opacity.Disabled).toEqual({ $type: "number", $value: 0.5 });
+  });
+
   it("keeps finite numeric edge values and skips non-finite values", () => {
     const result = normalizeFigmaVariables({
       variableCollections: { c: { name: "Shape", modes: [{ modeId: "light", name: "Light" }] } },

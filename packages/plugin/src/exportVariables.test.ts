@@ -40,6 +40,37 @@ it("exports border widths and sizes from Plugin variables", () => {
   expect(result.files["variables.css"]).toContain("--size-avatar: 32px;");
 });
 
+it("keeps existing Plugin exports and fallback classifications unchanged", () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const result = createExports(
+    [
+      { id: "spacing", name: "Spacing", modes: [{ modeId: "light", name: "Light" }] },
+      { id: "shape", name: "Shape", modes: [{ modeId: "light", name: "Light" }] },
+      { id: "text", name: "Text Styles", modes: [{ modeId: "light", name: "Light" }] },
+      { id: "opacity", name: "Opacity", modes: [{ modeId: "light", name: "Light" }] },
+      { id: "borderColors", name: "Border Colors", modes: [{ modeId: "light", name: "Light" }] }
+    ],
+    [
+      { id: "color", name: "color/primary", description: "", variableCollectionId: "spacing", resolvedType: "COLOR", valuesByMode: { light: { r: 1, g: 0, b: 0, a: 1 } } },
+      { id: "spacing", name: "Grid", description: "", variableCollectionId: "spacing", resolvedType: "FLOAT", valuesByMode: { light: 8 } },
+      { id: "radius", name: "Small", description: "", variableCollectionId: "shape", resolvedType: "FLOAT", valuesByMode: { light: 4 } },
+      { id: "fontSize", name: "Body", description: "", variableCollectionId: "text", resolvedType: "FLOAT", valuesByMode: { light: 16 } },
+      { id: "opacity", name: "Disabled", description: "", variableCollectionId: "opacity", resolvedType: "FLOAT", valuesByMode: { light: 0.5 } },
+      { id: "borderColor", name: "Divider", description: "", variableCollectionId: "borderColors", resolvedType: "FLOAT", valuesByMode: { light: 1 } }
+    ]
+  );
+
+  expect(result.typeCounts).toEqual({ color: 1, spacing: 1, radius: 1, borderWidth: 0, size: 0, fontSize: 1, opacity: 1 });
+  expect(result.warnings).toEqual(["unclassified FLOAT variable skipped: Divider (collection: Border Colors)"]);
+  expect(result.files["theme.ts"]).toContain('"fontSize": {\n    "body": "16px"');
+  expect(result.files["theme.ts"]).not.toContain('"borderWidth"');
+  expect(result.files["theme.ts"]).not.toContain('"size"');
+  expect(result.files["variables.css"]).toContain("--color-primary: #ff0000;");
+  expect(result.files["variables.css"]).toContain("--font-size-body: 16px;");
+  expect(result.files["tokens.dtcg.json"]).toContain('"$type": "number"');
+  warn.mockRestore();
+});
+
 it("classifies unprefixed FLOAT variables from collection names", () => {
   const result = createExports(
     [{ id: "c", name: "Shape", modes: [{ modeId: "light", name: "Light" }] }],
