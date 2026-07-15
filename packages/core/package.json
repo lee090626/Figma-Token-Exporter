@@ -1,10 +1,20 @@
 {
   "name": "@figma-token/core",
   "version": "0.1.0",
+  "description": "Normalize Figma Variables and render design token export formats.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": "./dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lee090626/Project-F.git",
+    "directory": "packages/core"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
     "test": "vitest run"
