@@ -8,7 +8,7 @@ import {
   renderTokensJson,
   type DesignToken,
   type TokenType
-} from "@figma-token/core";
+} from "@lee090626/core";
 
 export interface PluginCollection {
   id: string;

@@ -11,7 +11,7 @@ import {
   renderTheme,
   renderTokensJson,
   type DesignToken
-} from "@figma-token/core";
+} from "@lee090626/core";
 import { fetchFigmaVariables } from "./figma/fetchFigmaVariables.js";
 
 export interface SyncOptions {

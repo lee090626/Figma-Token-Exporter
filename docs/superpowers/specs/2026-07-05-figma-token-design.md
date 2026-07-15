@@ -8,7 +8,7 @@
 
 사용자는 `npx figma-token sync` 또는 workspace 개발 명령으로 Figma Variables를 가져오고, 이전 snapshot과 비교한 뒤 `tokens.json`이나 `theme.ts`를 생성할 수 있다.
 
-root workspace package 이름은 publish 대상과 충돌하지 않는 private package `figma-token-monorepo`다. publish 대상 package 이름은 core가 `@figma-token/core`, CLI가 `figma-token`이다. CLI package는 `figma-token` binary를 노출해 npm 배포 후 `npx figma-token sync`와 일치시킨다.
+root workspace package 이름은 publish 대상과 충돌하지 않는 private package `figma-token-monorepo`다. publish 대상 package 이름은 core가 `@lee090626/core`, CLI가 `figma-token`이다. CLI package는 `figma-token` binary를 노출해 npm 배포 후 `npx figma-token sync`와 일치시킨다.
 
 ## 패키지 경계
 

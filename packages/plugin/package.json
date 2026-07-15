@@ -7,7 +7,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@figma-token/core": "workspace:*"
+    "@lee090626/core": "workspace:*"
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.117.0",

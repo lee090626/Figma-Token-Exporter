@@ -1,17 +1,17 @@
-# @figma-token/core
+# @lee090626/core
 
-`@figma-token/core` normalizes Figma Variables data and renders design token files. It has no Figma API or file-system dependency.
+`@lee090626/core` normalizes Figma Variables data and renders design token files. It has no Figma API or file-system dependency.
 
 ## Install
 
 ```bash
-npm install @figma-token/core
+npm install @lee090626/core
 ```
 
 ## Basic usage
 
 ```ts
-import { normalizeFigmaVariables, renderTheme } from "@figma-token/core";
+import { normalizeFigmaVariables, renderTheme } from "@lee090626/core";
 
 const tokens = normalizeFigmaVariables(figmaVariables);
 const theme = renderTheme(tokens);

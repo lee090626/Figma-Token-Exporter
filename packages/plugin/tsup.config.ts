@@ -4,6 +4,6 @@ export default defineConfig({
   entry: ["src/code.ts"],
   format: ["iife"],
   clean: true,
-  noExternal: ["@figma-token/core"],
+  noExternal: ["@lee090626/core"],
   platform: "browser"
 });

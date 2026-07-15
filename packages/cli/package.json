@@ -19,7 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@figma-token/core": "workspace:*",
+    "@lee090626/core": "workspace:*",
     "commander": "^14.0.0",
     "dotenv": "^17.0.0"
   },
