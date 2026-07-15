@@ -2,6 +2,7 @@
   "name": "@figma-token/core",
   "version": "0.1.0",
   "description": "Normalize Figma Variables and render design token export formats.",
+  "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
