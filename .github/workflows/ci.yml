@@ -1,0 +1,88 @@
+name: CI and publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm exec tsc --noEmit
+
+  release-check:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: version
+        run: |
+          version="$(node -p "require('./packages/cli/package.json').version")"
+          set +e
+          output="$(npm view "figma-token@$version" version --json 2>&1)"
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif printf '%s\n' "$output" | grep -q 'E404\|No match found'; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s\n' "$output" >&2
+            exit "$status"
+          fi
+
+  publish:
+    needs: [test, release-check]
+    if: needs.release-check.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: npm-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: |
+          version="$(node -p "require('./packages/cli/package.json').version")"
+          set +e
+          output="$(npm view "figma-token@$version" version --json 2>&1)"
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "figma-token@$version is already published."
+            exit 0
+          elif ! printf '%s\n' "$output" | grep -q 'E404\|No match found'; then
+            printf '%s\n' "$output" >&2
+            exit "$status"
+          fi
+          pnpm --filter figma-token publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
