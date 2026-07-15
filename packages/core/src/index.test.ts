@@ -287,6 +287,71 @@ describe("core", () => {
     ]);
   });
 
+  it("keeps border width and size edge cases safe in every export format", () => {
+    const skipped: string[] = [];
+    const result = normalizeFigmaVariables({
+      variableCollections: {
+        border: { name: "Border Width", modes: [{ modeId: "light", name: "Light" }] },
+        size: { name: "Size", modes: [{ modeId: "light", name: "Light" }] },
+        borderColors: { name: "Border Colors", modes: [{ modeId: "light", name: "Light" }] }
+      },
+      variables: {
+        negative: { name: "borderWidth/-4", variableCollectionId: "border", resolvedType: "FLOAT", valuesByMode: { light: -4 } },
+        positive: { name: "borderWidth/4", variableCollectionId: "border", resolvedType: "FLOAT", valuesByMode: { light: 4 } },
+        fraction: { name: "borderWidth/0.5", variableCollectionId: "border", resolvedType: "FLOAT", valuesByMode: { light: 0.5 } },
+        leadingZero: { name: "borderWidth/05", variableCollectionId: "border", resolvedType: "FLOAT", valuesByMode: { light: 5 } },
+        percent: { name: "size/100%", variableCollectionId: "size", resolvedType: "FLOAT", valuesByMode: { light: 100 } },
+        plain: { name: "size/100", variableCollectionId: "size", resolvedType: "FLOAT", valuesByMode: { light: 100 } },
+        fallbackBorder: { name: "Hairline", variableCollectionId: "border", resolvedType: "FLOAT", valuesByMode: { light: 1 } },
+        fallbackSize: { name: "Avatar", variableCollectionId: "size", resolvedType: "FLOAT", valuesByMode: { light: 32 } },
+        nan: { name: "borderWidth/invalid", variableCollectionId: "border", resolvedType: "FLOAT", valuesByMode: { light: Number.NaN } },
+        infinity: { name: "size/invalid", variableCollectionId: "size", resolvedType: "FLOAT", valuesByMode: { light: Infinity } },
+        undefinedBorder: { name: "borderWidth/missing", variableCollectionId: "border", resolvedType: "FLOAT", valuesByMode: { light: undefined } },
+        missingSize: { name: "size/missing", variableCollectionId: "size", resolvedType: "FLOAT", valuesByMode: {} },
+        borderColor: { name: "Divider", variableCollectionId: "borderColors", resolvedType: "FLOAT", valuesByMode: { light: 1 } }
+      }
+    }, { onUnsupported: (name) => skipped.push(name) });
+    const files = {
+      json: renderTokensJson(result),
+      theme: renderTheme(result),
+      css: renderCssVariables(result),
+      scss: renderScssVariables(result),
+      tailwind: renderTailwindTheme(result),
+      dtcg: renderDtcgJson(result)
+    };
+
+    expect(result.map((token) => `${token.type}:${token.path.join("/")}:${token.value}`)).toEqual([
+      "borderWidth:borderWidth/-4:-4",
+      "borderWidth:borderWidth/0.5:0.5",
+      "borderWidth:borderWidth/05:5",
+      "borderWidth:borderWidth/4:4",
+      "borderWidth:borderWidth/Hairline:1",
+      "size:size/100:100",
+      "size:size/100%:100",
+      "size:size/Avatar:32"
+    ]);
+    expect(skipped).toEqual(["Divider"]);
+    expect(files.json).not.toMatch(/undefined|NaN|Infinity/);
+    expect(files.theme).toContain('"negative4": "-4px"');
+    expect(files.theme).toContain('"_4": "4px"');
+    expect(files.theme).toContain('"_0Dot5": "0.5px"');
+    expect(files.theme).toContain('"_05": "5px"');
+    expect(files.theme).toContain('"_100Percent": "100px"');
+    expect(files.theme).toContain('"_100": "100px"');
+    for (const output of [files.css, files.scss, files.tailwind]) {
+      expect(output).toContain("border-width-negative-4: -4px;");
+      expect(output).toContain("border-width-4: 4px;");
+      expect(output).toContain("border-width-0-dot-5: 0.5px;");
+      expect(output).toContain("border-width-05: 5px;");
+      expect(output).toContain("size-100-percent: 100px;");
+      expect(output).toContain("size-100: 100px;");
+      expect(output).not.toMatch(/undefinedpx|NaNpx|Infinitypx/);
+    }
+    const dtcg = JSON.parse(files.dtcg);
+    expect(dtcg.borderWidth.Hairline).toEqual({ $type: "dimension", $value: { value: 1, unit: "px" } });
+    expect(dtcg.size.Avatar).toEqual({ $type: "dimension", $value: { value: 32, unit: "px" } });
+  });
+
   it("keeps existing type exports stable without border widths or sizes", () => {
     const skipped: string[] = [];
     const result = normalizeFigmaVariables({
