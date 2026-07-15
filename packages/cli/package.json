@@ -7,7 +7,7 @@
   "bin": { "figma-token": "dist/index.js" },
   "repository": {
     "type": "git",
-    "url": "https://github.com/lee090626/Project-F.git",
+    "url": "git+https://github.com/lee090626/Project-F.git",
     "directory": "packages/cli"
   },
   "files": [

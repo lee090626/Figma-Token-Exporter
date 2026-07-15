@@ -55,6 +55,9 @@ jobs:
     needs: [test, release-check]
     if: needs.release-check.outputs.publish == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     concurrency:
       group: npm-publish
       cancel-in-progress: false
@@ -63,15 +66,17 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: pnpm
+          node-version: 24
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: |
-          version="$(node -p "require('./packages/cli/package.json').version")"
+      - name: Publish with npm trusted publishing
+        working-directory: packages/cli
+        run: |
+          version="$(node -p "require('./package.json').version")"
           set +e
           output="$(npm view "figma-token@$version" version --json 2>&1)"
           status=$?
@@ -83,6 +88,4 @@ jobs:
             printf '%s\n' "$output" >&2
             exit "$status"
           fi
-          pnpm --filter figma-token publish --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish
