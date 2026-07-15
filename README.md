@@ -16,7 +16,7 @@ Phase 1 export:
 ```bash
 pnpm install
 pnpm build
-node packages/cli/dist/index.js sync --input fixtures/figma-variables.json --dry-run
+node packages/cli/dist/index.js ~/Downloads/tokens.json --dry-run
 ```
 
 ## 일반 사용자: Plugin
@@ -30,15 +30,16 @@ node packages/cli/dist/index.js sync --input fixtures/figma-variables.json --dry
 
 ## 개발자 자동화: CLI
 
-플러그인에서 받은 `tokens.json`을 diff와 snapshot 관리에 다시 사용할 수 있습니다.
+플러그인은 6개 포맷을 직접 다운로드할 수 있습니다. CLI는 Plugin의 `tokens.json`을 프로젝트의 정해진 폴더에 6개 파일로 적용하고, 현재 파일이 최신인지 확인할 때만 사용합니다.
 
 ```bash
-node packages/cli/dist/index.js sync --input ~/Downloads/tokens.json
+node packages/cli/dist/index.js ~/Downloads/tokens.json --out ./src/tokens
+node packages/cli/dist/index.js check ~/Downloads/tokens.json --out ./src/tokens
 ```
 
 ## Enterprise 사용자: REST API
 
-`.env.example`을 `.env`로 복사하고 `FIGMA_TOKEN`, `FIGMA_FILE_KEY`를 설정합니다. CLI 옵션은 환경변수보다 우선합니다.
+`.env.example`을 `.env`로 복사하고 `FIGMA_TOKEN`, `FIGMA_FILE_KEY`를 설정합니다. 이 경로는 숨김 고급 `sync` 명령으로 유지됩니다. CLI 옵션은 환경변수보다 우선합니다.
 
 ```bash
 npx figma-token sync --format tokens-json --output ./tokens.json

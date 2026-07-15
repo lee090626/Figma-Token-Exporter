@@ -1,6 +1,6 @@
 # figma-token
 
-`figma-token` exports Figma Variables to design token files.
+`figma-token` applies a Figma Plugin `tokens.json` export to a project directory.
 
 ## Install
 
@@ -8,33 +8,45 @@
 npm install --global figma-token
 ```
 
-## Help
+The Figma Plugin can download all six formats directly. Use this CLI when a project needs those files written to a predictable folder and checked for changes.
+
+## Apply Plugin Tokens
 
 ```bash
-figma-token --help
-figma-token sync --help
+figma-token ./figma-tokens.json
 ```
 
-## Basic usage
+This creates the following files in `./figma-token-output/`:
 
-Export a local Figma Variables JSON file:
+```text
+tokens.json
+theme.ts
+variables.css
+tokens.scss
+tailwind.css
+tokens.dtcg.json
+```
+
+Choose a project directory with `--out`:
 
 ```bash
-figma-token sync --input ./figma-variables.json --format theme-ts --output ./theme.ts
+figma-token ./figma-tokens.json --out ./src/tokens
 ```
 
-Preview token changes without writing output or snapshot files:
+Preview all generated files without writing anything:
 
 ```bash
-figma-token sync --input ./figma-variables.json --dry-run
+figma-token ./figma-tokens.json --dry-run
 ```
 
-`--input` accepts a Figma Variables JSON response or a normalized `tokens.json` array. Without `--input`, provide `--figma-token` and `--file-key`, or set `FIGMA_TOKEN` and `FIGMA_FILE_KEY`.
+Check whether generated files are current:
 
-## Options
+```bash
+figma-token check ./figma-tokens.json --out ./src/tokens
+```
 
-`sync` supports `--input`, `--output`, `--snapshot`, `--format`, `--export-name`, `--figma-token`, `--file-key`, and `--dry-run`.
+## Advanced Sync
 
-Supported formats are `tokens-json`, `theme-ts`, `variables-css`, `tokens-scss`, `tailwind-css`, and `tokens-dtcg-json`.
+The hidden `sync` command retains the previous single-format, snapshot, and Figma REST API flow for advanced users. It accepts `--input`, `--output`, `--snapshot`, `--format`, `--export-name`, `--figma-token`, `--file-key`, and `--dry-run`.
 
 For Plugin usage and project-wide documentation, see <https://github.com/lee090626/Project-F>.
