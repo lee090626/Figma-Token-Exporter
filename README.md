@@ -14,27 +14,32 @@ Phase 1 export:
 ## 설치와 실행
 
 ```bash
-pnpm install
-pnpm build
-node packages/cli/dist/index.js ~/Downloads/tokens.json --dry-run
+npm install -D figma-token
+npx figma-token
+npx figma-token --check
+npx figma-token --dry-run
+npx figma-token --out src/tokens
+npx figma-token ./figma-export.json
 ```
+
+입력 파일을 생략하면 현재 프로젝트의 `./tokens.json`을 사용합니다.
 
 ## 일반 사용자: Plugin
 
 1. `pnpm build`를 실행합니다.
 2. Figma 데스크톱 앱에서 `Plugins > Development > Import plugin from manifest...`를 선택합니다.
 3. `packages/plugin/manifest.json`을 선택하고 플러그인을 실행합니다.
-4. 필요한 포맷의 다운로드 버튼을 누릅니다.
+4. 전체 파일 ZIP 또는 필요한 개별 포맷을 다운로드합니다.
 
 터미널이나 Personal Access Token은 필요하지 않습니다.
 
 ## 개발자 자동화: CLI
 
-플러그인은 6개 포맷을 직접 다운로드할 수 있습니다. CLI는 Plugin의 `tokens.json`을 프로젝트의 정해진 폴더에 6개 파일로 적용하고, 현재 파일이 최신인지 확인할 때만 사용합니다.
+Plugin은 ZIP 또는 6개 포맷을 직접 다운로드할 수 있습니다. CLI는 Plugin의 `tokens.json`을 프로젝트의 정해진 폴더에 적용하고 최신 상태를 확인할 때 사용하는 선택 도구입니다.
 
 ```bash
-node packages/cli/dist/index.js ~/Downloads/tokens.json --out ./src/tokens
-node packages/cli/dist/index.js check ~/Downloads/tokens.json --out ./src/tokens
+npx figma-token --out ./src/tokens
+npx figma-token --check --out ./src/tokens
 ```
 
 ## Enterprise 사용자: REST API

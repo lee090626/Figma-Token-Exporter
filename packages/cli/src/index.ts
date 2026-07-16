@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import "dotenv/config";
 import { Command, InvalidArgumentError } from "commander";
-import { checkTokenFiles, defaultOutputDirectory, exportTokenFiles } from "./exportTokens.js";
+import { checkTokenFiles, defaultInputFile, defaultOutputDirectory, exportTokenFiles } from "./exportTokens.js";
 import { sync } from "./sync.js";
 
 const format = (value: string) => {
@@ -13,20 +13,27 @@ const format = (value: string) => {
 const program = new Command()
   .name("figma-token")
   .description("Plugin tokens.json을 프로젝트 토큰 파일로 적용합니다.")
-  .version("0.1.2")
-  .argument("<input>", "Figma Plugin에서 다운로드한 tokens.json")
+  .version("0.1.3")
+  .argument("[input]", "Figma Plugin에서 다운로드한 tokens.json (default: ./tokens.json)")
   .option("--out <directory>", "출력 폴더 (default: ./figma-token-output)")
   .option("--dry-run", "파일을 쓰지 않고 생성 결과를 확인")
+  .option("--check", "현재 토큰 파일이 최신인지 확인")
   .action(async (input, options) => {
-    await exportTokenFiles({ input, output: options.out ?? defaultOutputDirectory(), dryRun: options.dryRun });
-  });
-
-program.command("check")
-  .description("현재 토큰 파일이 Plugin tokens.json과 일치하는지 확인합니다.")
-  .argument("<input>", "Figma Plugin에서 다운로드한 tokens.json")
-  .option("--out <directory>", "출력 폴더 (default: ./figma-token-output)")
-  .action(async (input, options) => {
-    process.exitCode = await checkTokenFiles({ input, output: options.out ?? defaultOutputDirectory() });
+    if (options.check && options.dryRun) throw new Error("--check와 --dry-run은 함께 사용할 수 없습니다. 하나만 사용하세요.");
+    const defaultInput = !input;
+    const inputPath = input ?? defaultInputFile();
+    try {
+      if (options.check) {
+        process.exitCode = await checkTokenFiles({ input: inputPath, output: options.out ?? defaultOutputDirectory() });
+        return;
+      }
+      await exportTokenFiles({ input: inputPath, output: options.out ?? defaultOutputDirectory(), dryRun: options.dryRun });
+    } catch (error) {
+      if (defaultInput && error instanceof Error && error.message.startsWith("Input file not found:")) {
+        throw new Error("Expected token file: ./tokens.json\nProvide another file with: figma-token <input>");
+      }
+      throw error;
+    }
   });
 
 program.command("sync", { hidden: true })

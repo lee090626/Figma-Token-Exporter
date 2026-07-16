@@ -2,7 +2,7 @@ import { access, mkdir, mkdtemp, readFile, readdir, rm, unlink, writeFile } from
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkTokenFiles, defaultOutputDirectory, exportTokenFiles, tokenFileNames } from "./exportTokens.js";
+import { checkTokenFiles, defaultInputFile, defaultOutputDirectory, exportTokenFiles, tokenFileNames } from "./exportTokens.js";
 
 const sampleTokens = [{ name: "spacing/base", path: ["spacing", "base"], type: "spacing", value: 8 }];
 const temporaryDirectories: string[] = [];
@@ -22,6 +22,10 @@ afterEach(async () => {
 describe("Plugin token export", () => {
   it("uses figma-token-output as the default output directory", () => {
     expect(defaultOutputDirectory("/tmp/project")).toBe(resolve("/tmp/project/figma-token-output"));
+  });
+
+  it("uses tokens.json as the default input file", () => {
+    expect(defaultInputFile("/tmp/project")).toBe(resolve("/tmp/project/tokens.json"));
   });
 
   it("creates all six files and creates missing output directories", async () => {
@@ -81,6 +85,7 @@ describe("Plugin token export", () => {
 
     await expect(checkTokenFiles({ input, output }, (message) => logs.push(message))).resolves.toBe(0);
     expect(logs).toEqual(["Token files are up to date."]);
+    expect(await readFile(join(output, "theme.ts"), "utf8")).toContain("export const theme");
   });
 
   it("reports changed files with exit code 1", async () => {

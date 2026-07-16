@@ -5,18 +5,18 @@
 ## Install
 
 ```bash
-npm install --global figma-token
+npm install -D figma-token
 ```
 
-The Figma Plugin can download all six formats directly. Use this CLI when a project needs those files written to a predictable folder and checked for changes.
+The Figma Plugin can download a ZIP or all six formats directly. Use this optional CLI when a project needs those files written to a predictable folder and checked for changes.
 
 ## Apply Plugin Tokens
 
 ```bash
-figma-token ./figma-tokens.json
+npx figma-token
 ```
 
-This creates the following files in `./figma-token-output/`:
+Without an input path, the CLI reads `./tokens.json` from the current project and creates the following files in `./figma-token-output/`:
 
 ```text
 tokens.json
@@ -30,20 +30,24 @@ tokens.dtcg.json
 Choose a project directory with `--out`:
 
 ```bash
-figma-token ./figma-tokens.json --out ./src/tokens
+npx figma-token --out ./src/tokens
+npx figma-token ./figma-export.json
 ```
 
 Preview all generated files without writing anything:
 
 ```bash
-figma-token ./figma-tokens.json --dry-run
+npx figma-token --dry-run
 ```
 
 Check whether generated files are current:
 
 ```bash
-figma-token check ./figma-tokens.json --out ./src/tokens
+npx figma-token --check
+npx figma-token --check --out ./src/tokens
 ```
+
+`--check` and `--dry-run` cannot be used together. The old `check` subcommand is not supported.
 
 ## Advanced Sync
 

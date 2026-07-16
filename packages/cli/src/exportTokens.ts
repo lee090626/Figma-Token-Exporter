@@ -25,6 +25,10 @@ export function defaultOutputDirectory(cwd = process.cwd()) {
   return resolve(cwd, "figma-token-output");
 }
 
+export function defaultInputFile(cwd = process.cwd()) {
+  return resolve(cwd, "tokens.json");
+}
+
 const outputDirectory = (output?: string) => resolve(output ?? defaultOutputDirectory());
 
 async function readPluginTokens(input: string): Promise<{ inputPath: string; tokens: DesignToken[] }> {
