@@ -13,7 +13,7 @@ const format = (value: string) => {
 const program = new Command()
   .name("figma-token")
   .description("Plugin tokens.json을 프로젝트 토큰 파일로 적용합니다.")
-  .version("0.1.0")
+  .version("0.1.2")
   .argument("<input>", "Figma Plugin에서 다운로드한 tokens.json")
   .option("--out <directory>", "출력 폴더 (default: ./figma-token-output)")
   .option("--dry-run", "파일을 쓰지 않고 생성 결과를 확인")
