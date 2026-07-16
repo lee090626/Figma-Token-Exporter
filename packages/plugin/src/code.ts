@@ -2,7 +2,7 @@
 
 import { createExports } from "./exportVariables.js";
 
-figma.showUI(__html__, { width: 360, height: 320, themeColors: true });
+figma.showUI(__html__, { width: 360, height: 440, themeColors: true });
 
 async function sendVariables() {
   const [collections, variables] = await Promise.all([

@@ -1,53 +1,171 @@
 <!doctype html>
 <html>
-<body style="font: 13px Inter, sans-serif; padding: 16px; color: var(--figma-color-text); background: var(--figma-color-bg)">
-  <h2 style="font-size: 16px; margin: 0 0 8px">Export design tokens</h2>
+<head>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; font: 13px Inter, sans-serif; color: var(--figma-color-text); background: var(--figma-color-bg); }
+    h2 { margin: 0 0 8px; font-size: 16px; }
+    p { margin: 8px 0; line-height: 1.45; }
+    .section { margin-top: 16px; }
+    .muted { color: var(--figma-color-text-secondary); }
+    .counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 8px 0 0; padding-left: 18px; }
+    .actions { display: grid; gap: 8px; }
+    button { width: 100%; min-height: 32px; padding: 6px 12px; border: 1px solid var(--figma-color-border); border-radius: 5px; color: var(--figma-color-text); background: var(--figma-color-bg); font: inherit; text-align: left; cursor: pointer; }
+    button:hover { background: var(--figma-color-bg-hover); }
+    button.primary { border-color: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand); background: var(--figma-color-bg-brand); font-weight: 600; }
+    button.primary:hover { background: var(--figma-color-bg-brand-hover); }
+    button:focus-visible, summary:focus-visible { outline: 2px solid var(--figma-color-border-selected); outline-offset: 2px; }
+    pre { margin: 8px 0; padding: 8px 10px; border-radius: 4px; background: var(--figma-color-bg-secondary); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    details { margin-top: 16px; }
+    summary { cursor: pointer; font-weight: 600; }
+    .individual-actions { display: grid; gap: 8px; margin-top: 10px; }
+    #warning { margin-top: 12px; }
+    #warning[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <h2>Export design tokens</h2>
   <p id="status">현재 파일의 Variables를 읽고 있습니다.</p>
-  <details id="result" open style="display: none; margin: 0 0 12px">
-    <summary style="cursor: pointer; font-weight: 600">Export 결과</summary>
-    <ul id="counts" style="margin: 8px 0; padding-left: 18px"></ul>
-    <p id="skippedStatus" style="margin: 8px 0"></p>
-    <ul id="skipped" style="margin: 0; padding-left: 18px"></ul>
-  </details>
-  <div id="downloads" style="display: grid; gap: 8px"></div>
+
+  <main id="result" hidden>
+    <section class="section" aria-labelledby="summary-title">
+      <strong id="summary-title">Export 결과</strong>
+      <p id="tokenCount"></p>
+      <ul id="counts" class="counts"></ul>
+      <div id="warning" hidden>
+        <p id="skippedStatus"></p>
+        <ul id="skipped" style="margin: 0; padding-left: 18px"></ul>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="actions-title">
+      <strong id="actions-title">주요 작업</strong>
+      <div class="actions" style="margin-top: 8px">
+        <button id="downloadAll" class="primary" type="button">전체 파일 다운로드</button>
+        <button id="downloadTokens" type="button">tokens.json 다운로드</button>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="cli-title">
+      <strong id="cli-title">CLI 안내</strong>
+      <p>Plugin은 Figma 안에서 결과를 확인하고 직접 다운로드합니다.</p>
+      <p>tokens.json을 프로젝트 루트에 저장한 뒤 다음 명령을 실행할 수 있습니다.</p>
+      <pre><code>figma-token</code></pre>
+      <p class="muted">CLI는 tokens.json을 프로젝트 폴더에 적용하고 최신 상태를 검사합니다.</p>
+    </section>
+
+    <details>
+      <summary>개별 형식 다운로드</summary>
+      <div id="individualDownloads" class="individual-actions"></div>
+    </details>
+  </main>
+
   <script>
     let files;
     const tokenTypes = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
+    const textEncoder = new TextEncoder();
+    const crcTable = Uint32Array.from({ length: 256 }, (_, index) => {
+      let value = index;
+      for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+      return value >>> 0;
+    });
+
     onmessage = ({ data }) => {
       const message = data.pluginMessage;
-      if (message.type === "error") document.getElementById("status").textContent = `오류: ${message.message}`;
-      if (message.type === "exports") {
-        files = message.files;
-        document.getElementById("status").textContent = `${message.count}개 토큰을 읽었습니다.`;
-        document.getElementById("result").style.display = "block";
-        document.getElementById("counts").replaceChildren(...tokenTypes.filter((type) => message.typeCounts?.[type]).map((type) => {
-          const item = document.createElement("li");
-          item.textContent = `${type} ${message.typeCounts[type]}개`;
-          return item;
-        }));
-        const skippedVariables = message.skippedVariables || [];
-        document.getElementById("skippedStatus").textContent = skippedVariables.length
-          ? "다음 변수는 이름 규칙과 맞지 않아 제외되었습니다."
-          : "모든 변수가 정상적으로 export되었습니다.";
-        document.getElementById("skipped").replaceChildren(...skippedVariables.map((name) => {
-          const item = document.createElement("li");
-          item.textContent = name;
-          return item;
-        }));
-        document.getElementById("downloads").replaceChildren(...Object.keys(files).map((filename) => {
-          const button = document.createElement("button");
-          button.textContent = `${filename} 다운로드`;
-          button.onclick = () => download(filename);
-          return button;
-        }));
+      if (message.type === "error") {
+        files = undefined;
+        document.getElementById("result").hidden = true;
+        document.getElementById("status").hidden = false;
+        document.getElementById("status").textContent = `오류: ${message.message}`;
+        return;
       }
+      if (message.type !== "exports") return;
+
+      files = message.files;
+      document.getElementById("status").hidden = true;
+      document.getElementById("result").hidden = false;
+      document.getElementById("tokenCount").textContent = `${message.count}개 토큰을 읽었습니다.`;
+      document.getElementById("counts").replaceChildren(...tokenTypes.filter((type) => message.typeCounts?.[type]).map((type) => {
+        const item = document.createElement("li");
+        item.textContent = `${type} ${message.typeCounts[type]}개`;
+        return item;
+      }));
+      const skippedVariables = message.skippedVariables || [];
+      const warning = document.getElementById("warning");
+      warning.hidden = !skippedVariables.length;
+      document.getElementById("skippedStatus").textContent = "다음 변수는 이름 규칙과 맞지 않아 제외되었습니다.";
+      document.getElementById("skipped").replaceChildren(...skippedVariables.map((name) => {
+        const item = document.createElement("li");
+        item.textContent = name;
+        return item;
+      }));
+      document.getElementById("downloadAll").onclick = () => downloadAll();
+      document.getElementById("downloadTokens").onclick = () => download("tokens.json");
+      document.getElementById("individualDownloads").replaceChildren(...Object.keys(files).filter((filename) => filename !== "tokens.json").map((filename) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = `${filename} 다운로드`;
+        button.onclick = () => download(filename);
+        return button;
+      }));
     };
+
     function download(filename) {
+      triggerDownload(new Blob([files[filename]], { type: "text/plain" }), filename);
+    }
+
+    function downloadAll() {
+      triggerDownload(new Blob([createZip(Object.entries(files))], { type: "application/zip" }), "figma-token-export.zip");
+    }
+
+    function triggerDownload(blob, filename) {
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(new Blob([files[filename]], { type: "text/plain" }));
+      const url = URL.createObjectURL(blob);
+      link.href = url;
       link.download = filename;
       link.click();
-      URL.revokeObjectURL(link.href);
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    function createZip(entries) {
+      const localFiles = [];
+      const centralDirectory = [];
+      let offset = 0;
+      for (const [filename, content] of entries) {
+        const name = textEncoder.encode(filename);
+        const data = textEncoder.encode(content);
+        const crc = crc32(data);
+        const local = joinBytes([u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data]);
+        localFiles.push(local);
+        centralDirectory.push(joinBytes([u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name]));
+        offset += local.length;
+      }
+      const central = joinBytes(centralDirectory);
+      return joinBytes([...localFiles, central, u32(0x06054b50), u16(0), u16(0), u16(entries.length), u16(entries.length), u32(central.length), u32(offset), u16(0)]);
+    }
+
+    function crc32(data) {
+      let crc = 0xffffffff;
+      for (const byte of data) crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+      return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    function u16(value) {
+      return new Uint8Array([value & 0xff, value >>> 8 & 0xff]);
+    }
+
+    function u32(value) {
+      return new Uint8Array([value & 0xff, value >>> 8 & 0xff, value >>> 16 & 0xff, value >>> 24 & 0xff]);
+    }
+
+    function joinBytes(parts) {
+      const result = new Uint8Array(parts.reduce((length, part) => length + part.length, 0));
+      let offset = 0;
+      for (const part of parts) {
+        result.set(part, offset);
+        offset += part.length;
+      }
+      return result;
     }
   </script>
 </body>
