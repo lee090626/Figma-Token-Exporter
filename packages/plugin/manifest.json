@@ -1,9 +1,10 @@
 {
   "name": "Figma Token Exporter",
-  "id": "figma-token-exporter",
+  "id": "1660332489271616705",
   "api": "1.0.0",
   "main": "dist/code.global.js",
   "ui": "src/ui.html",
   "editorType": ["figma"],
-  "documentAccess": "dynamic-page"
+  "documentAccess": "dynamic-page",
+  "networkAccess": { "allowedDomains": ["none"] }
 }
