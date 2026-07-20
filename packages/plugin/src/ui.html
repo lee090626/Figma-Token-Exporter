@@ -64,6 +64,12 @@
       <button id="downloadComponentManifest" type="button">component-manifest.json 다운로드</button>
     </section>
 
+    <section id="frameManifest" class="component" hidden aria-labelledby="frame-title">
+      <strong id="frame-title" class="section-title">선택한 화면의 토큰 사용처</strong>
+      <p id="frameManifestStatus" class="muted"></p>
+      <button id="downloadFrameManifest" type="button">token-usage.json 다운로드</button>
+    </section>
+
     <section class="cli" aria-labelledby="cli-title">
       <strong id="cli-title" class="section-title">CLI로 프로젝트에 적용</strong>
       <p>tokens.json을 프로젝트 루트에 저장한 뒤 실행하세요.</p>
@@ -80,6 +86,8 @@
   <script>
     let files;
     let componentManifest;
+    let frameManifest;
+    let resizeFrame;
     const tokenTypes = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
     const textEncoder = new TextEncoder();
     const crcTable = Uint32Array.from({ length: 256 }, (_, index) => {
@@ -98,11 +106,33 @@
         return;
       }
       if (message.type === "component-manifest-unavailable") return;
+      if (message.type === "component-manifest-error") {
+        document.getElementById("componentManifest").hidden = false;
+        document.getElementById("componentManifestStatus").textContent = `컴포넌트를 분석하지 못했습니다: ${message.message}`;
+        document.getElementById("downloadComponentManifest").disabled = true;
+        return;
+      }
       if (message.type === "component-manifest") {
         componentManifest = message.file;
         document.getElementById("componentManifest").hidden = false;
-        document.getElementById("componentManifestStatus").textContent = `선택한 컴포넌트에서 ${message.variableCount}개 Variable binding을 찾았습니다.`;
+        document.getElementById("componentManifestStatus").textContent = message.variantCount
+          ? `${message.variantCount}개 variant와 ${message.variableCount}개 Variable binding을 찾았습니다.`
+          : `선택한 컴포넌트에서 ${message.variableCount}개 Variable binding을 찾았습니다.`;
         document.getElementById("downloadComponentManifest").onclick = () => triggerDownload(new Blob([componentManifest], { type: "application/json" }), "component-manifest.json");
+        return;
+      }
+      if (message.type === "frame-manifest-unavailable") return;
+      if (message.type === "frame-manifest-error") {
+        document.getElementById("frameManifest").hidden = false;
+        document.getElementById("frameManifestStatus").textContent = `화면을 분석하지 못했습니다: ${message.message}`;
+        document.getElementById("downloadFrameManifest").disabled = true;
+        return;
+      }
+      if (message.type === "frame-manifest") {
+        frameManifest = message.file;
+        document.getElementById("frameManifest").hidden = false;
+        document.getElementById("frameManifestStatus").textContent = `${message.tokenCount}개 Token이 ${message.usageCount}개 레이어에서 사용됩니다.`;
+        document.getElementById("downloadFrameManifest").onclick = () => triggerDownload(new Blob([frameManifest], { type: "application/json" }), "token-usage.json");
         return;
       }
       if (message.type !== "exports") return;
@@ -138,6 +168,11 @@
 
     function download(filename) {
       triggerDownload(new Blob([files[filename]], { type: "text/plain" }), filename);
+    }
+
+    function resizeToContent() {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => parent.postMessage({ pluginMessage: { type: "resize", height: document.body.scrollHeight } }, "*"));
     }
 
     function downloadAll() {
@@ -193,6 +228,10 @@
       }
       return result;
     }
+
+    new MutationObserver(resizeToContent).observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true });
+    parent.postMessage({ pluginMessage: { type: "ui-ready" } }, "*");
+    resizeToContent();
   </script>
 </body>
 </html>
