@@ -26,18 +26,26 @@ it("creates a component-set manifest with each variant's properties and bindings
     });
 });
 
-it("creates a stable token usage map for a frame", () => {
-  expect(createFrameManifest({ name: "Home", nodeId: "1:5", type: "FRAME" }, [
-    { name: "spacing/md", usedBy: [{ nodeId: "1:7", name: "Button", type: "RECTANGLE", path: "Home / Button" }] },
-    { name: "color/primary", usedBy: [
-      { nodeId: "1:6", name: "Card", type: "FRAME", path: "Home / Card" },
-      { nodeId: "1:6", name: "Card", type: "FRAME", path: "Home / Card" }
-    ] }
+it("creates a compact token usage map for a frame", () => {
+  expect(createFrameManifest("Home", [
+    { name: "spacing/md", usedBy: ["Home / Button"] },
+    { name: "color/primary", usedBy: ["Home / Card", "Home"] }
   ])).toEqual({
-    frame: { name: "Home", nodeId: "1:5", type: "FRAME" },
-    tokens: [
-      { name: "color/primary", usedBy: [{ nodeId: "1:6", name: "Card", type: "FRAME", path: "Home / Card" }] },
-      { name: "spacing/md", usedBy: [{ nodeId: "1:7", name: "Button", type: "RECTANGLE", path: "Home / Button" }] }
-    ]
+    frame: "Home",
+    tokens: {
+      "color/primary": [".", "Card"],
+      "spacing/md": ["Button"]
+    }
   });
+});
+
+it("preserves every token and full path through the compact conversion", () => {
+  const original = [
+    { name: "Background/Normal", usedBy: ["Dgit", "Dgit / Bottom tab view"] },
+    { name: "Label/Strong", usedBy: ["Dgit / Date picker / Frame 963"] }
+  ];
+  const compact = createFrameManifest("Dgit", original);
+  const restored = Object.entries(compact.tokens).flatMap(([name, paths]) => paths.map((path) => [name, path === "." ? compact.frame : `${compact.frame} / ${path}`])).sort();
+  const expected = original.flatMap(({ name, usedBy }) => usedBy.map((path) => [name, path])).sort();
+  expect(restored).toEqual(expected);
 });

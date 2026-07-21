@@ -71,25 +71,26 @@ async function sendFrameManifest() {
     return;
   }
   const frame = selection as FrameNode;
-  const usages = new Map<string, Array<{ nodeId: string; name: string; type: string; path: string }>>();
+  const usages = new Map<string, string[]>();
   for (const node of [frame, ...frame.findAll()]) {
     for (const variableId of new Set(variableIdsFromBindings(node.boundVariables))) {
       const usedBy = usages.get(variableId) ?? [];
-      usedBy.push({ nodeId: node.id, name: node.name, type: node.type, path: nodePath(node, frame) });
+      usedBy.push(nodePath(node, frame));
       usages.set(variableId, usedBy);
     }
   }
   const tokens = (await Promise.all([...usages].map(async ([id, usedBy]) => {
     const name = (await figma.variables.getVariableByIdAsync(id))?.name;
     return name ? { name, usedBy } : undefined;
-  }))).filter((token): token is { name: string; usedBy: Array<{ nodeId: string; name: string; type: string; path: string }> } => Boolean(token));
-  const manifest = createFrameManifest({ name: frame.name, nodeId: frame.id, type: "FRAME" }, tokens);
-  const usageCount = manifest.tokens.reduce((count, token) => count + token.usedBy.length, 0);
+  }))).filter((token): token is { name: string; usedBy: string[] } => Boolean(token));
+  const manifest = createFrameManifest(frame.name, tokens);
+  const usageCount = Object.values(manifest.tokens).reduce((count, paths) => count + paths.length, 0);
   figma.ui.postMessage({ type: "frame-manifest", file: `${JSON.stringify(manifest, null, 2)}\n`, tokenCount: manifest.tokens.length, usageCount });
 }
 
 function nodePath(node: SceneNode, frame: FrameNode): string {
-  const names = node.id === frame.id ? [] : [node.name];
+  if (node.id === frame.id) return frame.name;
+  const names = [node.name];
   for (let parent = node.parent; parent && parent.id !== frame.id; parent = parent.parent) {
     if ("name" in parent && typeof parent.name === "string") names.unshift(parent.name);
   }

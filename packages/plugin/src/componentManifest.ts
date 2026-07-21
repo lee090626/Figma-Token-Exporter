@@ -17,20 +17,8 @@ export interface ComponentManifest {
 }
 
 export interface FrameManifest {
-  frame: {
-    name: string;
-    nodeId: string;
-    type: "FRAME";
-  };
-  tokens: Array<{
-    name: string;
-    usedBy: Array<{
-      nodeId: string;
-      name: string;
-      type: string;
-      path: string;
-    }>;
-  }>;
+  frame: string;
+  tokens: Record<string, string[]>;
 }
 
 export function variableIdsFromBindings(value: unknown): string[] {
@@ -53,13 +41,16 @@ export function createComponentManifest(
   return { component: { ...component, variantProperties, variants }, variables: [...new Set(variables)].sort() };
 }
 
-export function createFrameManifest(frame: FrameManifest["frame"], tokens: FrameManifest["tokens"]): FrameManifest {
+export function createFrameManifest(frame: string, tokenUsages: Array<{ name: string; usedBy: string[] }>): FrameManifest {
+  const tokens = new Map<string, string[]>();
+  const prefix = `${frame} / `;
+  for (const { name, usedBy } of tokenUsages) {
+    const paths = tokens.get(name) ?? [];
+    paths.push(...usedBy.map((path) => path === frame ? "." : path.startsWith(prefix) ? path.slice(prefix.length) : path));
+    tokens.set(name, paths);
+  }
   return {
     frame,
-    tokens: tokens.map((token) => ({
-      ...token,
-      usedBy: [...new Map(token.usedBy.map((usage) => [usage.nodeId, usage])).values()]
-        .sort((a, b) => a.path.localeCompare(b.path) || a.nodeId.localeCompare(b.nodeId))
-    })).sort((a, b) => a.name.localeCompare(b.name))
+    tokens: Object.fromEntries([...tokens].sort(([a], [b]) => a.localeCompare(b)).map(([name, paths]) => [name, paths.sort()]))
   };
 }
