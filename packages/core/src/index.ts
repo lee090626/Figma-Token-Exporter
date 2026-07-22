@@ -22,10 +22,13 @@ export interface TokenDiff {
   token: DesignToken;
 }
 
+type UnsupportedReason = "unclassified-float" | "unsupported-type";
+type AliasWarningReason = "alias-target-missing" | "alias-cycle" | "alias-type-mismatch" | "alias-mode-mismatch";
+
 export interface NormalizeOptions {
   modeId?: string;
-  onUnsupported?: (name: string, reason: "unclassified-float" | "unsupported-type", collection?: string) => void;
-  onAliasWarning?: (name: string, reason: "alias-target-missing" | "alias-cycle" | "alias-type-mismatch" | "alias-mode-mismatch", collection?: string) => void;
+  onUnsupported?: (name: string, reason: UnsupportedReason, collection?: string) => void;
+  onAliasWarning?: (name: string, reason: AliasWarningReason, collection?: string) => void;
 }
 
 type RecordValue = Record<string, unknown>;
@@ -95,7 +98,22 @@ function pickModeId(collection: RecordValue | undefined, values: RecordValue, wa
   return firstModeId ?? Object.keys(values)[0];
 }
 
-function resolveValue(variables: RecordValue, variable: RecordValue, modeId: string, onWarning?: (name: string, reason: "alias-target-missing" | "alias-cycle" | "alias-mode-mismatch") => void, seen = new Set<unknown>()): unknown {
+function collectionModes(collection: RecordValue | undefined): RecordValue[] {
+  return Array.isArray(collection?.modes) ? collection.modes.filter(isRecord) : [];
+}
+
+function collectionName(collection: RecordValue | undefined): string | undefined {
+  return typeof collection?.name === "string" ? collection.name : undefined;
+}
+
+function collectionFor(variable: RecordValue, collections: RecordValue): RecordValue | undefined {
+  const collectionId = variable.variableCollectionId;
+  return typeof collectionId === "string" && isRecord(collections[collectionId])
+    ? collections[collectionId] as RecordValue
+    : undefined;
+}
+
+function resolveValue(variables: RecordValue, variable: RecordValue, modeId: string, onWarning?: (name: string, reason: Exclude<AliasWarningReason, "alias-type-mismatch">) => void, seen = new Set<unknown>()): unknown {
   const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
   const name = typeof variable.name === "string" ? variable.name : modeId;
   if (!(modeId in values)) {
@@ -130,6 +148,48 @@ function normalizeValue(value: unknown, type: TokenType): number | ColorValue | 
   return undefined;
 }
 
+function normalizeVariable(variable: RecordValue, variables: RecordValue, collections: RecordValue, options: NormalizeOptions): DesignToken | undefined {
+  if (typeof variable.name !== "string" || variable.deletedButReferenced === true) return undefined;
+
+  const collection = collectionFor(variable, collections);
+  const typeFromName = tokenTypeFromName(variable.name, variable.resolvedType);
+  const type = typeFromName ?? tokenTypeFromCollection(collection, variable.resolvedType);
+  const collectionLabel = collectionName(collection);
+  if (!type) {
+    options.onUnsupported?.(variable.name, variable.resolvedType === "FLOAT" ? "unclassified-float" : "unsupported-type", collectionLabel);
+    return undefined;
+  }
+
+  const path = variable.name.split("/").filter(Boolean);
+  if (!path.length) return undefined;
+
+  const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
+  const modeId = pickModeId(collection, values, options.modeId);
+  if (!modeId) return undefined;
+
+  const warnAlias = (name: string, reason: AliasWarningReason) => options.onAliasWarning?.(name, reason, collectionLabel);
+  const selectedValue = values[modeId];
+  const rawValue = resolveValue(variables, variable, modeId, warnAlias);
+  const value = normalizeValue(rawValue, type);
+  if (value === undefined) {
+    if (isRecord(selectedValue) && selectedValue.type === "VARIABLE_ALIAS" && rawValue !== undefined) {
+      warnAlias(variable.name, "alias-type-mismatch");
+    }
+    return undefined;
+  }
+
+  const mode = collectionModes(collection).find((candidate) => candidate.modeId === modeId);
+  return {
+    name: variable.name,
+    path: typeFromName ? path : [type, ...path],
+    type,
+    value,
+    ...(collectionLabel !== undefined ? { collection: collectionLabel } : {}),
+    ...(typeof mode?.name === "string" ? { mode: mode.name } : {}),
+    ...(typeof variable.description === "string" && variable.description ? { description: variable.description } : {})
+  };
+}
+
 export function normalizeFigmaVariables(input: unknown, options: NormalizeOptions = {}): DesignToken[] {
   if (!isRecord(input)) return [];
   const root = isRecord(input.meta) ? input.meta : input;
@@ -138,42 +198,9 @@ export function normalizeFigmaVariables(input: unknown, options: NormalizeOption
   const result: DesignToken[] = [];
 
   for (const variable of Object.values(variables)) {
-    if (!isRecord(variable) || typeof variable.name !== "string" || variable.deletedButReferenced === true) continue;
-    const collection = typeof variable.variableCollectionId === "string" && isRecord(collections[variable.variableCollectionId])
-      ? collections[variable.variableCollectionId] as RecordValue
-      : undefined;
-    const typeFromName = tokenTypeFromName(variable.name, variable.resolvedType);
-    const typeFromCollection = tokenTypeFromCollection(collection, variable.resolvedType);
-    const type = typeFromName ?? typeFromCollection;
-    if (!type) {
-      options.onUnsupported?.(variable.name, variable.resolvedType === "FLOAT" ? "unclassified-float" : "unsupported-type", typeof collection?.name === "string" ? collection.name : undefined);
-      continue;
-    }
-    const path = variable.name.split("/").filter(Boolean);
-    if (!path.length) continue;
-    const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
-    const modeId = pickModeId(collection, values, options.modeId);
-    if (!modeId) continue;
-    const warnAlias = (name: string, reason: "alias-target-missing" | "alias-cycle" | "alias-type-mismatch" | "alias-mode-mismatch") =>
-      options.onAliasWarning?.(name, reason, typeof collection?.name === "string" ? collection.name : undefined);
-    const selectedValue = values[modeId];
-    const rawValue = resolveValue(variables, variable, modeId, warnAlias);
-    const value = normalizeValue(rawValue, type);
-    if (value === undefined) {
-      if (isRecord(selectedValue) && selectedValue.type === "VARIABLE_ALIAS" && rawValue !== undefined) warnAlias(variable.name, "alias-type-mismatch");
-      continue;
-    }
-    const modes = Array.isArray(collection?.modes) ? collection.modes.filter(isRecord) : [];
-    const mode = modes.find((candidate) => candidate.modeId === modeId);
-    result.push({
-      name: variable.name,
-      path: typeFromName ? path : [type, ...path],
-      type,
-      value,
-      ...(typeof collection?.name === "string" ? { collection: collection.name } : {}),
-      ...(typeof mode?.name === "string" ? { mode: mode.name } : {}),
-      ...(typeof variable.description === "string" && variable.description ? { description: variable.description } : {})
-    });
+    if (!isRecord(variable)) continue;
+    const token = normalizeVariable(variable, variables, collections, options);
+    if (token) result.push(token);
   }
   return result.sort(compareTokens);
 }
@@ -242,19 +269,23 @@ function dtcgValue(token: DesignToken): DtcgToken {
   return { $type: "number", $value: token.value as number };
 }
 
+function assignNestedValue(root: RecordValue, path: string[], value: unknown, errorPrefix: string): void {
+  let cursor = root;
+  path.forEach((part, index) => {
+    if (index === path.length - 1) {
+      if (part in cursor) throw new Error(`${errorPrefix}: ${path.join(".")}`);
+      cursor[part] = value;
+      return;
+    }
+    if (part in cursor && !isRecord(cursor[part])) throw new Error(`${errorPrefix}: ${path.join(".")}`);
+    cursor = cursor[part] as RecordValue ?? (cursor[part] = {} as RecordValue);
+  });
+}
+
 export function renderDtcgJson(tokens: DesignToken[]): string {
   const root: RecordValue = {};
   for (const token of tokens) {
-    let cursor = root;
-    token.path.forEach((part, index) => {
-      if (index === token.path.length - 1) {
-        if (part in cursor) throw new Error(`Duplicate DTCG path: ${token.path.join(".")}`);
-        cursor[part] = dtcgValue(token);
-      } else {
-        if (part in cursor && !isRecord(cursor[part])) throw new Error(`Duplicate DTCG path: ${token.path.join(".")}`);
-        cursor = cursor[part] as RecordValue ?? (cursor[part] = {} as RecordValue);
-      }
-    });
+    assignNestedValue(root, token.path, dtcgValue(token), "Duplicate DTCG path");
   }
   return `${JSON.stringify(root, null, 2)}\n`;
 }
@@ -264,16 +295,7 @@ export function renderTheme(tokens: DesignToken[], exportName = "theme"): string
   const root: RecordValue = {};
   for (const token of tokens) {
     const path = token.path.map((part) => camelKey(part, "token"));
-    let cursor = root;
-    path.forEach((part, index) => {
-      if (index === path.length - 1) {
-        if (part in cursor) throw new Error(`Duplicate theme path: ${path.join(".")}`);
-        cursor[part] = formatThemeValue(token);
-      } else {
-        if (part in cursor && !isRecord(cursor[part])) throw new Error(`Duplicate theme path: ${path.join(".")}`);
-        cursor = cursor[part] as RecordValue ?? (cursor[part] = {} as RecordValue);
-      }
-    });
+    assignNestedValue(root, path, formatThemeValue(token), "Duplicate theme path");
   }
   return `export const ${exportName} = ${JSON.stringify(root, null, 2)} as const;\n`;
 }

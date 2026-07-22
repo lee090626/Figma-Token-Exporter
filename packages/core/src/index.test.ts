@@ -598,4 +598,12 @@ describe("core", () => {
     expect(() => renderTheme([tokens[0], tokens[0]])).toThrow("Duplicate theme path");
     expect(() => renderDtcgJson([tokens[0], tokens[0]])).toThrow("Duplicate DTCG path");
   });
+
+  it("keeps theme parent and child path collisions rejected", () => {
+    const parent: DesignToken = { name: "spacing", path: ["spacing"], type: "spacing", value: 8 };
+    const child: DesignToken = { name: "spacing/small", path: ["spacing", "small"], type: "spacing", value: 4 };
+
+    expect(() => renderTheme([parent, child])).toThrow("Duplicate theme path: spacing.small");
+    expect(() => renderTheme([child, parent])).toThrow("Duplicate theme path: spacing");
+  });
 });
