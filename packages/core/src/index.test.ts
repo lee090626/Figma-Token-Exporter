@@ -601,12 +601,14 @@ describe("core", () => {
     expect(() => renderDtcgJson([tokens[0], tokens[0]])).toThrow("Duplicate DTCG path");
   });
 
-  it("keeps theme parent and child path collisions rejected", () => {
+  it("rejects parent and child path collisions in nested renderers", () => {
     const parent: DesignToken = { name: "spacing", path: ["spacing"], type: "spacing", value: 8 };
     const child: DesignToken = { name: "spacing/small", path: ["spacing", "small"], type: "spacing", value: 4 };
 
     expect(() => renderTheme([parent, child])).toThrow("Duplicate theme path: spacing.small");
     expect(() => renderTheme([child, parent])).toThrow("Duplicate theme path: spacing");
+    expect(() => renderDtcgJson([parent, child])).toThrow("Duplicate DTCG path: spacing.small");
+    expect(() => renderDtcgJson([child, parent])).toThrow("Duplicate DTCG path: spacing");
   });
 
   it("renders __proto__ paths without mutating Object.prototype", () => {

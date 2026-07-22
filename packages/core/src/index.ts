@@ -291,8 +291,15 @@ function assignNestedValue(root: RecordValue, path: string[], value: unknown, er
 
 export function renderDtcgJson(tokens: DesignToken[]): string {
   const root = createRecord();
+  const paths = new Set<string>();
   for (const token of tokens) {
+    for (let index = 1; index < token.path.length; index++) {
+      if (paths.has(token.path.slice(0, index).join("\0"))) {
+        throw new Error(`Duplicate DTCG path: ${token.path.join(".")}`);
+      }
+    }
     assignNestedValue(root, token.path, dtcgValue(token), "Duplicate DTCG path");
+    paths.add(token.path.join("\0"));
   }
   return `${JSON.stringify(root, null, 2)}\n`;
 }
