@@ -102,15 +102,15 @@
         section.hidden = false;
         const status = document.getElementById("selectionManifestStatus");
         if (message.type === "manifest-error") {
-          status.textContent = `${message.kind} 결과를 만들지 못했습니다: ${message.message}`;
+          status.textContent = friendlyManifestError(message.kind, message.message);
           return;
         }
         status.textContent = "선택한 Frame, Component, Component Set별 결과입니다.";
         const button = document.createElement("button");
         button.type = "button";
         button.textContent = message.kind === "frames"
-          ? `${message.filename}: ${message.count}개 Frame / ${message.tokenCount}개 Token / ${message.usageCount}개 사용처 다운로드`
-          : `${message.filename}: ${message.count}개 ${message.kind === "components" ? "Component" : "Component Set"} / ${message.variableCount}개 Variable binding 다운로드`;
+          ? `${message.count}개 Frame · ${message.tokenCount}개 Token · ${message.usageCount}회 적용 다운로드`
+          : `${message.count}개 ${message.kind === "components" ? "Component" : "Component Set"} · ${message.variableCount}개 Variable 다운로드`;
         button.onclick = () => triggerDownload(
           new Blob([message.kind === "frames" ? createZip(Object.entries(message.files)) : message.file], { type: message.kind === "frames" ? "application/zip" : "application/json" }),
           message.filename
@@ -151,6 +151,14 @@
 
     function download(filename) {
       triggerDownload(new Blob([files[filename]], { type: "text/plain" }), filename);
+    }
+
+    function friendlyManifestError(kind, message) {
+      if (/unable to establish connection|network|connection/i.test(message)) {
+        return "Figma와 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 플러그인을 다시 실행하세요.";
+      }
+      const label = { frame: "프레임", component: "컴포넌트", "component set": "컴포넌트 세트" }[kind] || "선택한 노드";
+      return `${label} 분석 결과를 만들지 못했습니다. 잠시 후 다시 시도하세요.`;
     }
 
     function resizeToContent() {
