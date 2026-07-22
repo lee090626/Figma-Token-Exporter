@@ -81,6 +81,7 @@
     let files;
     let resizeFrame;
     const tokenTypes = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
+    const utf8Flag = 0x0800;
     const textEncoder = new TextEncoder();
     const crcTable = Uint32Array.from({ length: 256 }, (_, index) => {
       let value = index;
@@ -215,9 +216,9 @@
         const name = textEncoder.encode(filename);
         const data = textEncoder.encode(content);
         const crc = crc32(data);
-        const local = joinBytes([u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data]);
+        const local = joinBytes([u32(0x04034b50), u16(20), u16(utf8Flag), u16(0), u16(0), u16(0), u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data]);
         localFiles.push(local);
-        centralDirectory.push(joinBytes([u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name]));
+        centralDirectory.push(joinBytes([u32(0x02014b50), u16(20), u16(20), u16(utf8Flag), u16(0), u16(0), u16(0), u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name]));
         offset += local.length;
       }
       const central = joinBytes(centralDirectory);
