@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
   diffTokens,
@@ -13,6 +13,7 @@ import {
   type DesignToken
 } from "@lee090626/core";
 import { fetchFigmaVariables } from "./figma/fetchFigmaVariables.js";
+import { writeFilesAtomically } from "./writeFiles.js";
 
 export interface SyncOptions {
   input?: string;
@@ -59,9 +60,9 @@ async function readSnapshot(path: string): Promise<DesignToken[]> {
   }
 }
 
-async function save(path: string, contents: string): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, contents);
+async function save(files: Array<{ path: string; contents: string }>): Promise<void> {
+  await Promise.all(files.map((file) => mkdir(dirname(file.path), { recursive: true })));
+  await writeFilesAtomically(files, (path) => new Error(`Cannot write output file: ${path}`));
 }
 
 function render(tokens: DesignToken[], options: SyncOptions): string {
@@ -105,6 +106,8 @@ export async function sync(options: SyncOptions, log = console.log, warn = conso
   const snapshot = await readSnapshot(options.snapshot);
   logDiffSummary(current, snapshot, log);
   if (options.dryRun) return;
-  await save(options.output, render(current, options));
-  await save(options.snapshot, renderTokensJson(current));
+  await save([
+    { path: options.output, contents: render(current, options) },
+    { path: options.snapshot, contents: renderTokensJson(current) }
+  ]);
 }

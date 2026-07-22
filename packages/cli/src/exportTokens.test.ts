@@ -132,6 +132,7 @@ describe("Plugin token export", () => {
     await mkdir(join(output, "theme.ts"), { recursive: true });
 
     await expect(exportTokenFiles({ input, output })).rejects.toThrow(`Cannot write token file: ${join(output, "theme.ts")}`);
+    await expect(access(join(output, "tokens.json"))).rejects.toThrow();
   });
 
   it("supports input and output paths with spaces", async () => {

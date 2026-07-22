@@ -33,6 +33,19 @@ describe("sync", () => {
     expect(await readFile(snapshot, "utf8")).toBe("[]\n");
   });
 
+  it("does not update output when snapshot preparation fails", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
+    const input = join(dir, "input.json");
+    const output = join(dir, "tokens.json");
+    const blockedParent = join(dir, "not-a-directory");
+    await writeFile(input, JSON.stringify({ variables: {} }));
+    await writeFile(output, "previous output");
+    await writeFile(blockedParent, "file");
+
+    await expect(sync({ input, output, snapshot: join(blockedParent, "snapshot.json"), format: "tokens-json", exportName: "theme", dryRun: false }, () => {})).rejects.toThrow();
+    await expect(readFile(output, "utf8")).resolves.toBe("previous output");
+  });
+
   it("rejects invalid snapshot tokens", async () => {
     const dir = await mkdtemp(join(tmpdir(), "figma-token-"));
     const input = join(dir, "input.json");

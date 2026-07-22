@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   isDesignTokenArray,
@@ -10,6 +10,7 @@ import {
   renderTokensJson,
   type DesignToken
 } from "@lee090626/core";
+import { writeFilesAtomically } from "./writeFiles.js";
 
 export const tokenFileNames = ["tokens.json", "theme.ts", "variables.css", "tokens.scss", "tailwind.css", "tokens.dtcg.json"] as const;
 type TokenFileName = (typeof tokenFileNames)[number];
@@ -85,14 +86,10 @@ async function writeTokenFiles(outputPath: string, files: TokenFiles): Promise<v
   } catch {
     throw new Error(`Cannot create output directory: ${outputPath}`);
   }
-  for (const filename of tokenFileNames) {
-    const path = join(outputPath, filename);
-    try {
-      await writeFile(path, files[filename]);
-    } catch {
-      throw new Error(`Cannot write token file: ${path}`);
-    }
-  }
+  await writeFilesAtomically(
+    tokenFileNames.map((filename) => ({ path: join(outputPath, filename), contents: files[filename] })),
+    (path) => new Error(`Cannot write token file: ${path}`)
+  );
 }
 
 export async function exportTokenFiles(options: ExportTokensOptions, log = console.log) {
