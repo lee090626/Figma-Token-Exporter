@@ -53,6 +53,14 @@ export function createFrameManifest(frame: string, tokenUsages: Array<{ name: st
   };
 }
 
+export function frameManifestFiles(manifests: FrameManifest[]): Record<string, string> {
+  const filenames = new Set<string>();
+  return Object.fromEntries(manifests.map((manifest) => {
+    const filename = uniqueFilename(`token-usage-${manifest.frame.replace(/[\\/:*?"<>|]/g, "-")}`, filenames);
+    return [`frames/${filename}.json`, `${JSON.stringify(manifest, null, 2)}\n`];
+  }));
+}
+
 function normalizeVariant(variant: ComponentVariant): ComponentVariant {
   return {
     ...variant,
@@ -77,6 +85,14 @@ function relativePath(frame: string, path: string) {
   if (path === frame) return ".";
   const prefix = `${frame} / `;
   return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+}
+
+function uniqueFilename(basename: string, filenames: Set<string>): string {
+  let filename = basename;
+  let suffix = 2;
+  while (filenames.has(filename)) filename = `${basename}-${suffix++}`;
+  filenames.add(filename);
+  return filename;
 }
 
 function uniqueSorted(values: Iterable<string>) {

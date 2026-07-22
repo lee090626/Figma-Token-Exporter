@@ -75,6 +75,10 @@ describe("Plugin token export", () => {
     await writeFile(input, JSON.stringify({ variables: {} }));
     await expect(exportTokenFiles({ input, output, dryRun: true })).rejects.toThrow("Unsupported input: expected Plugin tokens.json");
     await expect(access(output)).rejects.toThrow();
+
+    await writeFile(input, JSON.stringify([{ name: "color/invalid", path: ["color", "invalid"], type: "color", value: 8 }]));
+    await expect(exportTokenFiles({ input, output, dryRun: true })).rejects.toThrow("Unsupported input: expected Plugin tokens.json");
+    await expect(access(output)).rejects.toThrow();
   });
 
   it("reports up-to-date files with exit code 0", async () => {

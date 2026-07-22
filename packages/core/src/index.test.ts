@@ -412,6 +412,8 @@ describe("core", () => {
     ]);
     expect(isDesignTokenArray([{ ...tokens[0], value: { r: Infinity, g: 0, b: 0, a: 1 } }])).toBe(false);
     expect(isDesignTokenArray([{ ...tokens[3], value: Number.NaN }])).toBe(false);
+    expect(isDesignTokenArray([{ ...tokens[0], value: 8 }])).toBe(false);
+    expect(isDesignTokenArray([{ ...tokens[3], value: { r: 1, g: 0, b: 0, a: 1 } }])).toBe(false);
   });
 
   it("keeps signed and percent token names distinct in all export formats", () => {

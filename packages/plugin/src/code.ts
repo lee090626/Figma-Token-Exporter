@@ -1,6 +1,6 @@
 /// <reference types="@figma/plugin-typings" />
 
-import { createComponentManifest, createFrameManifest, variableIdsFromBindings } from "./componentManifest.js";
+import { createComponentManifest, createFrameManifest, frameManifestFiles, variableIdsFromBindings } from "./componentManifest.js";
 import { createExports } from "./exportVariables.js";
 
 const UI_WIDTH = 420;
@@ -140,10 +140,7 @@ function namesForIds(ids: Iterable<string>, variableNames: Map<string, string>) 
 
 async function sendFrameManifests(frames: FrameNode[]) {
   const manifests = await Promise.all(frames.map(createFrameManifestFor));
-  const files = Object.fromEntries(manifests.map((manifest) => [
-    `frames/${manifestFilename("token-usage", manifest.frame)}.json`,
-    `${JSON.stringify(manifest, null, 2)}\n`
-  ]));
+  const files = frameManifestFiles(manifests);
 
   figma.ui.postMessage({
     type: "manifest",
@@ -180,10 +177,6 @@ function collectFrameVariableUsages(frame: FrameNode) {
 
 function countTokenUses(tokens: Record<string, string[]>) {
   return Object.values(tokens).reduce((count, paths) => count + paths.length, 0);
-}
-
-function manifestFilename(prefix: string, name: string) {
-  return `${prefix}-${name.replace(/[\\/:*?"<>|]/g, "-")}`;
 }
 
 function nodePath(node: SceneNode, frame: FrameNode): string {

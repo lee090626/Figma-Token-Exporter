@@ -44,6 +44,9 @@ const isColorValue = (value: unknown): value is ColorValue =>
   isRecord(value) &&
   ["r", "g", "b", "a"].every((key) => isFiniteNumber(value[key]));
 
+const isTokenValue = (type: unknown, value: unknown): boolean =>
+  type === "color" ? isColorValue(value) : isFiniteNumber(value);
+
 const words = (value: string): string[] => value
   .replace(/%/g, " percent ")
   .replace(/(^|[^A-Za-z0-9])-([0-9])/g, "$1 negative $2")
@@ -57,7 +60,7 @@ export function isDesignTokenArray(value: unknown): value is DesignToken[] {
     typeof token.name === "string" &&
     Array.isArray(token.path) && token.path.length > 0 && token.path.every((part) => typeof part === "string") &&
     supportedTypes.includes(token.type as TokenType) &&
-    (isFiniteNumber(token.value) || isColorValue(token.value))
+    isTokenValue(token.type, token.value)
   );
 }
 

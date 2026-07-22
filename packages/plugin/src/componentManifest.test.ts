@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { createComponentManifest, createFrameManifest, variableIdsFromBindings } from "./componentManifest.js";
+import { createComponentManifest, createFrameManifest, frameManifestFiles, variableIdsFromBindings } from "./componentManifest.js";
 
 it("collects variable aliases from nested Figma bindings", () => {
   expect(variableIdsFromBindings({ fills: [{ type: "VARIABLE_ALIAS", id: "color" }], componentProperties: { size: { type: "VARIABLE_ALIAS", id: "spacing" } } }))
@@ -48,4 +48,21 @@ it("preserves every token and full path through the compact conversion", () => {
   const restored = Object.entries(compact.tokens).flatMap(([name, paths]) => paths.map((path) => [name, path === "." ? compact.frame : `${compact.frame} / ${path}`])).sort();
   const expected = original.flatMap(({ name, usedBy }) => usedBy.map((path) => [name, path])).sort();
   expect(restored).toEqual(expected);
+});
+
+it("keeps every selected frame when ZIP filenames collide", () => {
+  const files = frameManifestFiles([
+    { frame: "Web", tokens: {} },
+    { frame: "Web", tokens: { "color/primary": ["."] } },
+    { frame: "A/B", tokens: {} },
+    { frame: "A:B", tokens: {} }
+  ]);
+
+  expect(Object.keys(files)).toEqual([
+    "frames/token-usage-Web.json",
+    "frames/token-usage-Web-2.json",
+    "frames/token-usage-A-B.json",
+    "frames/token-usage-A-B-2.json"
+  ]);
+  expect(JSON.parse(files["frames/token-usage-Web-2.json"])).toMatchObject({ frame: "Web", tokens: { "color/primary": ["."] } });
 });
