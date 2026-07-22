@@ -18,12 +18,7 @@ figma.ui.onmessage = (message) => {
   sendVariables().catch((error: unknown) => {
     figma.ui.postMessage({ type: "error", message: error instanceof Error ? error.message : String(error) });
   });
-  sendComponentManifest().catch((error: unknown) => {
-    figma.ui.postMessage({ type: "component-manifest-error", message: error instanceof Error ? error.message : String(error) });
-  });
-  sendFrameManifest().catch((error: unknown) => {
-    figma.ui.postMessage({ type: "frame-manifest-error", message: error instanceof Error ? error.message : String(error) });
-  });
+  sendSelectionManifests();
 };
 
 async function sendVariables() {
@@ -39,13 +34,36 @@ async function sendVariables() {
   figma.ui.postMessage({ type: "exports", ...result });
 }
 
-async function sendComponentManifest() {
-  const [selection] = figma.currentPage.selection;
-  if (!selection || figma.currentPage.selection.length !== 1 || (selection.type !== "COMPONENT" && selection.type !== "COMPONENT_SET")) {
-    figma.ui.postMessage({ type: "component-manifest-unavailable" });
-    return;
-  }
-  const component = selection as ComponentNode | ComponentSetNode;
+async function sendSelectionManifests() {
+  const components = figma.currentPage.selection.filter((node): node is ComponentNode => node.type === "COMPONENT");
+  const componentSets = figma.currentPage.selection.filter((node): node is ComponentSetNode => node.type === "COMPONENT_SET");
+  const frames = figma.currentPage.selection.filter((node): node is FrameNode => node.type === "FRAME");
+  await Promise.all([
+    components.length && sendComponentManifests("components", components).catch((error: unknown) => sendManifestError("component", error)),
+    componentSets.length && sendComponentManifests("componentSets", componentSets).catch((error: unknown) => sendManifestError("component set", error)),
+    frames.length && sendFrameManifests(frames).catch((error: unknown) => sendManifestError("frame", error))
+  ]);
+}
+
+function sendManifestError(kind: string, error: unknown) {
+  figma.ui.postMessage({ type: "manifest-error", kind, message: error instanceof Error ? error.message : String(error) });
+}
+
+async function sendComponentManifests(kind: "components" | "componentSets", components: Array<ComponentNode | ComponentSetNode>) {
+  const manifests = await Promise.all(components.map(createComponentManifestFor));
+  const key = kind === "components" ? "components" : "componentSets";
+  const variableCount = new Set(manifests.flatMap((manifest) => manifest.variables)).size;
+  figma.ui.postMessage({
+    type: "manifest",
+    kind,
+    filename: kind === "components" ? "components.json" : "component-sets.json",
+    file: `${JSON.stringify({ [key]: manifests }, null, 2)}\n`,
+    count: manifests.length,
+    variableCount
+  });
+}
+
+async function createComponentManifestFor(component: ComponentNode | ComponentSetNode) {
   const variableIdsFor = (node: ComponentNode | ComponentSetNode) => new Set(
     [node, ...node.findAll()].flatMap((item) => variableIdsFromBindings(item.boundVariables))
       .concat(variableIdsFromBindings(node.type === "COMPONENT_SET" || !node.variantProperties ? node.componentPropertyDefinitions : undefined))
@@ -61,16 +79,23 @@ async function sendComponentManifest() {
     variables: [...variantVariableIds[index]].map((id) => variableNames.get(id)).filter((name): name is string => Boolean(name))
   }));
   const manifest = createComponentManifest({ name: component.name, nodeId: component.id, type: component.type, variants }, [...variableIds].map((id) => variableNames.get(id)).filter((name): name is string => Boolean(name)));
-  figma.ui.postMessage({ type: "component-manifest", file: `${JSON.stringify(manifest, null, 2)}\n`, variableCount: manifest.variables.length, variantCount: manifest.component.variants.length });
+  return manifest;
 }
 
-async function sendFrameManifest() {
-  const [selection] = figma.currentPage.selection;
-  if (!selection || figma.currentPage.selection.length !== 1 || selection.type !== "FRAME") {
-    figma.ui.postMessage({ type: "frame-manifest-unavailable" });
-    return;
-  }
-  const frame = selection as FrameNode;
+async function sendFrameManifests(frames: FrameNode[]) {
+  const manifests = await Promise.all(frames.map(createFrameManifestFor));
+  figma.ui.postMessage({
+    type: "manifest",
+    kind: "frames",
+    filename: "figma-frames.zip",
+    files: Object.fromEntries(manifests.map(({ frame, ...manifest }) => [`frames/${manifestFilename("token-usage", frame)}.json`, `${JSON.stringify({ frame, ...manifest }, null, 2)}\n`])),
+    count: manifests.length,
+    tokenCount: manifests.reduce((count, manifest) => count + Object.keys(manifest.tokens).length, 0),
+    usageCount: manifests.reduce((count, manifest) => count + Object.values(manifest.tokens).reduce((total, paths) => total + paths.length, 0), 0)
+  });
+}
+
+async function createFrameManifestFor(frame: FrameNode) {
   const usages = new Map<string, string[]>();
   for (const node of [frame, ...frame.findAll()]) {
     for (const variableId of new Set(variableIdsFromBindings(node.boundVariables))) {
@@ -84,8 +109,11 @@ async function sendFrameManifest() {
     return name ? { name, usedBy } : undefined;
   }))).filter((token): token is { name: string; usedBy: string[] } => Boolean(token));
   const manifest = createFrameManifest(frame.name, tokens);
-  const usageCount = Object.values(manifest.tokens).reduce((count, paths) => count + paths.length, 0);
-  figma.ui.postMessage({ type: "frame-manifest", file: `${JSON.stringify(manifest, null, 2)}\n`, tokenCount: manifest.tokens.length, usageCount });
+  return manifest;
+}
+
+function manifestFilename(prefix: string, name: string) {
+  return `${prefix}-${name.replace(/[\\/:*?"<>|]/g, "-")}`;
 }
 
 function nodePath(node: SceneNode, frame: FrameNode): string {

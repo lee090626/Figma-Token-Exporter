@@ -58,16 +58,10 @@
       </div>
     </section>
 
-    <section id="componentManifest" class="component" hidden aria-labelledby="component-title">
-      <strong id="component-title" class="section-title">선택 컴포넌트</strong>
-      <p id="componentManifestStatus" class="muted"></p>
-      <button id="downloadComponentManifest" type="button">component-manifest.json 다운로드</button>
-    </section>
-
-    <section id="frameManifest" class="component" hidden aria-labelledby="frame-title">
-      <strong id="frame-title" class="section-title">선택한 화면의 토큰 사용처</strong>
-      <p id="frameManifestStatus" class="muted"></p>
-      <button id="downloadFrameManifest" type="button">token-usage.json 다운로드</button>
+    <section id="selectionManifests" class="component" hidden aria-labelledby="selection-title">
+      <strong id="selection-title" class="section-title">선택한 노드 분석</strong>
+      <p id="selectionManifestStatus" class="muted"></p>
+      <div id="selectionManifestDownloads" class="individual-actions"></div>
     </section>
 
     <section class="cli" aria-labelledby="cli-title">
@@ -85,8 +79,6 @@
 
   <script>
     let files;
-    let componentManifest;
-    let frameManifest;
     let resizeFrame;
     const tokenTypes = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
     const textEncoder = new TextEncoder();
@@ -105,34 +97,25 @@
         document.getElementById("status").textContent = `오류: ${message.message}`;
         return;
       }
-      if (message.type === "component-manifest-unavailable") return;
-      if (message.type === "component-manifest-error") {
-        document.getElementById("componentManifest").hidden = false;
-        document.getElementById("componentManifestStatus").textContent = `컴포넌트를 분석하지 못했습니다: ${message.message}`;
-        document.getElementById("downloadComponentManifest").disabled = true;
-        return;
-      }
-      if (message.type === "component-manifest") {
-        componentManifest = message.file;
-        document.getElementById("componentManifest").hidden = false;
-        document.getElementById("componentManifestStatus").textContent = message.variantCount
-          ? `${message.variantCount}개 variant와 ${message.variableCount}개 Variable binding을 찾았습니다.`
-          : `선택한 컴포넌트에서 ${message.variableCount}개 Variable binding을 찾았습니다.`;
-        document.getElementById("downloadComponentManifest").onclick = () => triggerDownload(new Blob([componentManifest], { type: "application/json" }), "component-manifest.json");
-        return;
-      }
-      if (message.type === "frame-manifest-unavailable") return;
-      if (message.type === "frame-manifest-error") {
-        document.getElementById("frameManifest").hidden = false;
-        document.getElementById("frameManifestStatus").textContent = `화면을 분석하지 못했습니다: ${message.message}`;
-        document.getElementById("downloadFrameManifest").disabled = true;
-        return;
-      }
-      if (message.type === "frame-manifest") {
-        frameManifest = message.file;
-        document.getElementById("frameManifest").hidden = false;
-        document.getElementById("frameManifestStatus").textContent = `${message.tokenCount}개 Token이 ${message.usageCount}개 레이어에서 사용됩니다.`;
-        document.getElementById("downloadFrameManifest").onclick = () => triggerDownload(new Blob([frameManifest], { type: "application/json" }), "token-usage.json");
+      if (message.type === "manifest" || message.type === "manifest-error") {
+        const section = document.getElementById("selectionManifests");
+        section.hidden = false;
+        const status = document.getElementById("selectionManifestStatus");
+        if (message.type === "manifest-error") {
+          status.textContent = `${message.kind} 결과를 만들지 못했습니다: ${message.message}`;
+          return;
+        }
+        status.textContent = "선택한 Frame, Component, Component Set별 결과입니다.";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = message.kind === "frames"
+          ? `${message.filename}: ${message.count}개 Frame / ${message.tokenCount}개 Token / ${message.usageCount}개 사용처 다운로드`
+          : `${message.filename}: ${message.count}개 ${message.kind === "components" ? "Component" : "Component Set"} / ${message.variableCount}개 Variable binding 다운로드`;
+        button.onclick = () => triggerDownload(
+          new Blob([message.kind === "frames" ? createZip(Object.entries(message.files)) : message.file], { type: message.kind === "frames" ? "application/zip" : "application/json" }),
+          message.filename
+        );
+        document.getElementById("selectionManifestDownloads").append(button);
         return;
       }
       if (message.type !== "exports") return;
