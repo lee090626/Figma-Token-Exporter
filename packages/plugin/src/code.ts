@@ -49,6 +49,17 @@ function sendManifestError(kind: string, error: unknown) {
   figma.ui.postMessage({ type: "manifest-error", kind, message: error instanceof Error ? error.message : String(error) });
 }
 
+async function variableNamesById(ids: Iterable<string>) {
+  const variables = (await Promise.all([...ids].map((id) => figma.variables.getVariableByIdAsync(id))))
+    .filter((variable): variable is Variable => Boolean(variable));
+  const collections = new Map((await Promise.all([...new Set(variables.map((variable) => variable.variableCollectionId))].map(async (id) => [id, await figma.variables.getVariableCollectionByIdAsync(id)] as const)))
+    .filter((entry): entry is [string, VariableCollection] => Boolean(entry[1])));
+  return new Map(variables.map((variable) => [
+    variable.id,
+    collections.has(variable.variableCollectionId) ? `${collections.get(variable.variableCollectionId)?.name} / ${variable.name}` : variable.name
+  ]));
+}
+
 async function sendComponentManifests(kind: "components" | "componentSets", components: Array<ComponentNode | ComponentSetNode>) {
   const manifests = await Promise.all(components.map(createComponentManifestFor));
   const key = kind === "components" ? "components" : "componentSets";
@@ -71,7 +82,7 @@ async function createComponentManifestFor(component: ComponentNode | ComponentSe
   const variantComponents = component.type === "COMPONENT_SET" ? component.children.filter((child): child is ComponentNode => child.type === "COMPONENT") : [];
   const variantVariableIds = variantComponents.map(variableIdsFor);
   const variableIds = new Set([...variableIdsFor(component), ...variantVariableIds.flatMap((ids) => [...ids])]);
-  const variableNames = new Map((await Promise.all([...variableIds].map(async (id) => [id, (await figma.variables.getVariableByIdAsync(id))?.name] as const))).filter((entry): entry is [string, string] => Boolean(entry[1])));
+  const variableNames = await variableNamesById(variableIds);
   const variants = variantComponents.map((child, index) => ({
     name: child.name,
     nodeId: child.id,
@@ -104,10 +115,11 @@ async function createFrameManifestFor(frame: FrameNode) {
       usages.set(variableId, usedBy);
     }
   }
-  const tokens = (await Promise.all([...usages].map(async ([id, usedBy]) => {
-    const name = (await figma.variables.getVariableByIdAsync(id))?.name;
+  const variableNames = await variableNamesById(usages.keys());
+  const tokens = [...usages].map(([id, usedBy]) => {
+    const name = variableNames.get(id);
     return name ? { name, usedBy } : undefined;
-  }))).filter((token): token is { name: string; usedBy: string[] } => Boolean(token));
+  }).filter((token): token is { name: string; usedBy: string[] } => Boolean(token));
   const manifest = createFrameManifest(frame.name, tokens);
   return manifest;
 }
