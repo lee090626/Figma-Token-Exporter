@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 import "dotenv/config";
 import { Command, InvalidArgumentError } from "commander";
-import { checkTokenFiles, defaultInputFile, defaultOutputDirectory, exportTokenFiles } from "./exportTokens.js";
+import { runDefaultWorkflow } from "./runDefaultWorkflow.js";
 import { sync } from "./sync.js";
 
-const format = (value: string) => {
-  const formats = ["tokens-json", "theme-ts", "variables-css", "tokens-scss", "tailwind-css", "tokens-dtcg-json"];
-  if (!formats.includes(value)) throw new InvalidArgumentError(`format은 ${formats.join(", ")} 중 하나여야 합니다.`);
+const syncFormats = ["tokens-json", "theme-ts", "variables-css", "tokens-scss", "tailwind-css", "tokens-dtcg-json"];
+
+function parseSyncFormat(value: string): string {
+  if (!syncFormats.includes(value)) throw new InvalidArgumentError(`format은 ${syncFormats.join(", ")} 중 하나여야 합니다.`);
   return value;
-};
+}
 
 const program = new Command()
   .name("figma-token")
@@ -19,28 +20,15 @@ const program = new Command()
   .option("--dry-run", "파일을 쓰지 않고 생성 결과를 확인")
   .option("--check", "현재 토큰 파일이 최신인지 확인")
   .action(async (input, options) => {
-    if (options.check && options.dryRun) throw new Error("--check와 --dry-run은 함께 사용할 수 없습니다. 하나만 사용하세요.");
-    const defaultInput = !input;
-    const inputPath = input ?? defaultInputFile();
-    try {
-      if (options.check) {
-        process.exitCode = await checkTokenFiles({ input: inputPath, output: options.out ?? defaultOutputDirectory() });
-        return;
-      }
-      await exportTokenFiles({ input: inputPath, output: options.out ?? defaultOutputDirectory(), dryRun: options.dryRun });
-    } catch (error) {
-      if (defaultInput && error instanceof Error && error.message.startsWith("Input file not found:")) {
-        throw new Error("Expected token file: ./tokens.json\nProvide another file with: figma-token <input>");
-      }
-      throw error;
-    }
+    const exitCode = await runDefaultWorkflow(input, options);
+    if (exitCode === 1) process.exitCode = exitCode;
   });
 
 program.command("sync", { hidden: true })
   .option("--input <path>", "로컬 Figma Variables JSON")
   .option("--output <path>", "출력 파일", "./tokens.json")
   .option("--snapshot <path>", "snapshot 파일", ".figma-token/snapshot.json")
-  .option("--format <format>", "출력 포맷", format, "tokens-json")
+  .option("--format <format>", "출력 포맷", parseSyncFormat, "tokens-json")
   .option("--export-name <name>", "theme.ts export 이름", "theme")
   .option("--figma-token <token>", "Figma token")
   .option("--file-key <key>", "Figma file key")

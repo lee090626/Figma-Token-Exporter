@@ -21,15 +21,21 @@ export interface ExportTokensOptions {
   dryRun?: boolean;
 }
 
-export function defaultOutputDirectory(cwd = process.cwd()) {
+export function defaultOutputDirectory(cwd = process.cwd()): string {
   return resolve(cwd, "figma-token-output");
 }
 
-export function defaultInputFile(cwd = process.cwd()) {
+export function defaultInputFile(cwd = process.cwd()): string {
   return resolve(cwd, "tokens.json");
 }
 
-const outputDirectory = (output?: string) => resolve(output ?? defaultOutputDirectory());
+interface PreparedTokenFiles {
+  inputPath: string;
+  outputPath: string;
+  files: TokenFiles;
+}
+
+const resolveOutputDirectory = (output?: string): string => resolve(output ?? defaultOutputDirectory());
 
 async function readPluginTokens(input: string): Promise<{ inputPath: string; tokens: DesignToken[] }> {
   const inputPath = resolve(input);
@@ -53,7 +59,7 @@ async function readPluginTokens(input: string): Promise<{ inputPath: string; tok
   return { inputPath, tokens: raw };
 }
 
-function renderAll(tokens: DesignToken[]): TokenFiles {
+function renderTokenFiles(tokens: DesignToken[]): TokenFiles {
   return {
     "tokens.json": renderTokensJson(tokens),
     "theme.ts": renderTheme(tokens),
@@ -64,13 +70,16 @@ function renderAll(tokens: DesignToken[]): TokenFiles {
   };
 }
 
-async function prepare(options: ExportTokensOptions) {
+async function prepareTokenFiles(options: ExportTokensOptions): Promise<PreparedTokenFiles> {
   const { inputPath, tokens } = await readPluginTokens(options.input);
-  const outputPath = outputDirectory(options.output);
-  return { inputPath, outputPath, files: renderAll(tokens) };
+  return {
+    inputPath,
+    outputPath: resolveOutputDirectory(options.output),
+    files: renderTokenFiles(tokens)
+  };
 }
 
-async function writeAll(outputPath: string, files: TokenFiles) {
+async function writeTokenFiles(outputPath: string, files: TokenFiles): Promise<void> {
   try {
     await mkdir(outputPath, { recursive: true });
   } catch {
@@ -87,7 +96,7 @@ async function writeAll(outputPath: string, files: TokenFiles) {
 }
 
 export async function exportTokenFiles(options: ExportTokensOptions, log = console.log) {
-  const result = await prepare(options);
+  const result = await prepareTokenFiles(options);
   if (options.dryRun) {
     log(`Input: ${result.inputPath}`);
     log(`Output: ${result.outputPath}`);
@@ -95,13 +104,13 @@ export async function exportTokenFiles(options: ExportTokensOptions, log = conso
     tokenFileNames.forEach((filename) => log(`- ${filename}`));
     return result;
   }
-  await writeAll(result.outputPath, result.files);
+  await writeTokenFiles(result.outputPath, result.files);
   log(`Generated token files in: ${result.outputPath}`);
   return result;
 }
 
 export async function checkTokenFiles(options: Omit<ExportTokensOptions, "dryRun">, log = console.log): Promise<0 | 1> {
-  const result = await prepare(options);
+  const result = await prepareTokenFiles(options);
   const outdated: string[] = [];
   for (const filename of tokenFileNames) {
     const path = join(result.outputPath, filename);
