@@ -263,6 +263,10 @@ export const renderTailwindTheme = (tokens: DesignToken[]) => renderCssLike(toke
 
 type DtcgToken = { $type: "color"; $value: string } | { $type: "dimension"; $value: { value: number; unit: "px" } } | { $type: "number"; $value: number };
 
+function createRecord(): RecordValue {
+  return Object.create(null) as RecordValue;
+}
+
 function dtcgValue(token: DesignToken): DtcgToken {
   if (token.type === "color") return { $type: "color", $value: colorHex(token.value as ColorValue) };
   if (dimensionTypes.includes(token.type)) return { $type: "dimension", $value: { value: token.value as number, unit: "px" } };
@@ -273,17 +277,17 @@ function assignNestedValue(root: RecordValue, path: string[], value: unknown, er
   let cursor = root;
   path.forEach((part, index) => {
     if (index === path.length - 1) {
-      if (part in cursor) throw new Error(`${errorPrefix}: ${path.join(".")}`);
+      if (Object.hasOwn(cursor, part)) throw new Error(`${errorPrefix}: ${path.join(".")}`);
       cursor[part] = value;
       return;
     }
-    if (part in cursor && !isRecord(cursor[part])) throw new Error(`${errorPrefix}: ${path.join(".")}`);
-    cursor = cursor[part] as RecordValue ?? (cursor[part] = {} as RecordValue);
+    if (Object.hasOwn(cursor, part) && !isRecord(cursor[part])) throw new Error(`${errorPrefix}: ${path.join(".")}`);
+    cursor = cursor[part] as RecordValue ?? (cursor[part] = createRecord());
   });
 }
 
 export function renderDtcgJson(tokens: DesignToken[]): string {
-  const root: RecordValue = {};
+  const root = createRecord();
   for (const token of tokens) {
     assignNestedValue(root, token.path, dtcgValue(token), "Duplicate DTCG path");
   }
@@ -292,7 +296,7 @@ export function renderDtcgJson(tokens: DesignToken[]): string {
 
 export function renderTheme(tokens: DesignToken[], exportName = "theme"): string {
   if (!/^[A-Za-z_$][\w$]*$/.test(exportName)) throw new Error(`Invalid TypeScript export name: ${exportName}`);
-  const root: RecordValue = {};
+  const root = createRecord();
   for (const token of tokens) {
     const path = token.path.map((part) => camelKey(part, "token"));
     assignNestedValue(root, path, formatThemeValue(token), "Duplicate theme path");

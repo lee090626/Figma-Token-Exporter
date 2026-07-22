@@ -606,4 +606,12 @@ describe("core", () => {
     expect(() => renderTheme([parent, child])).toThrow("Duplicate theme path: spacing.small");
     expect(() => renderTheme([child, parent])).toThrow("Duplicate theme path: spacing");
   });
+
+  it("renders __proto__ paths without mutating Object.prototype", () => {
+    const token: DesignToken = { name: "__proto__/polluted", path: ["__proto__", "polluted"], type: "spacing", value: 1 };
+    const output = JSON.parse(renderDtcgJson([token]));
+
+    expect(output.__proto__.polluted).toEqual({ $type: "dimension", $value: { value: 1, unit: "px" } });
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
 });
