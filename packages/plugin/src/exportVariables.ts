@@ -52,19 +52,36 @@ export function createExports(collections: PluginCollection[], variables: Plugin
     warnings.push(message);
     console.warn(message);
   });
-  const typeCounts = Object.fromEntries(tokenTypes.map((type) => [type, tokens.filter((token) => token.type === type).length])) as Record<TokenType, number>;
+
   return {
     count: tokens.length,
-    typeCounts,
+    typeCounts: countTokensByType(tokens),
     warnings,
-    skippedVariables: warnings.map((warning) => warning.replace(/^.* skipped: /, "").replace(/ \(collection: .*?\)$/, "")),
-    files: {
-      "tokens.json": renderTokensJson(tokens),
-      "theme.ts": renderTheme(tokens),
-      "variables.css": renderCssVariables(tokens),
-      "tokens.scss": renderScssVariables(tokens),
-      "tailwind.css": renderTailwindTheme(tokens),
-      "tokens.dtcg.json": renderDtcgJson(tokens)
-    }
+    skippedVariables: skippedVariableNames(warnings),
+    files: renderOutputFiles(tokens)
+  };
+}
+
+function countTokensByType(tokens: DesignToken[]) {
+  return Object.fromEntries(tokenTypes.map((type) => [
+    type,
+    tokens.filter((token) => token.type === type).length
+  ])) as Record<TokenType, number>;
+}
+
+function skippedVariableNames(warnings: string[]) {
+  return warnings.map((warning) => warning
+    .replace(/^.* skipped: /, "")
+    .replace(/ \(collection: .*?\)$/, ""));
+}
+
+function renderOutputFiles(tokens: DesignToken[]) {
+  return {
+    "tokens.json": renderTokensJson(tokens),
+    "theme.ts": renderTheme(tokens),
+    "variables.css": renderCssVariables(tokens),
+    "tokens.scss": renderScssVariables(tokens),
+    "tailwind.css": renderTailwindTheme(tokens),
+    "tokens.dtcg.json": renderDtcgJson(tokens)
   };
 }

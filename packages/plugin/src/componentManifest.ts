@@ -33,24 +33,56 @@ export function createComponentManifest(
   component: Omit<ComponentManifest["component"], "variantProperties">,
   variables: string[]
 ): ComponentManifest {
-  const variants = component.variants.map((variant) => ({ ...variant, properties: Object.fromEntries(Object.entries(variant.properties).sort()), variables: [...new Set(variant.variables)].sort() }));
-  const variantProperties = Object.fromEntries(Object.entries(variants.reduce<Record<string, Set<string>>>((all, variant) => {
-    for (const [name, value] of Object.entries(variant.properties)) (all[name] ??= new Set()).add(value);
-    return all;
-  }, {})).sort(([a], [b]) => a.localeCompare(b)).map(([name, values]) => [name, [...values].sort()]));
-  return { component: { ...component, variantProperties, variants }, variables: [...new Set(variables)].sort() };
+  const variants = component.variants.map(normalizeVariant);
+  return {
+    component: { ...component, variants, variantProperties: collectVariantProperties(variants) },
+    variables: uniqueSorted(variables)
+  };
 }
 
 export function createFrameManifest(frame: string, tokenUsages: Array<{ name: string; usedBy: string[] }>): FrameManifest {
-  const tokens = new Map<string, string[]>();
-  const prefix = `${frame} / `;
+  const usageByToken = new Map<string, string[]>();
   for (const { name, usedBy } of tokenUsages) {
-    const paths = tokens.get(name) ?? [];
-    paths.push(...usedBy.map((path) => path === frame ? "." : path.startsWith(prefix) ? path.slice(prefix.length) : path));
-    tokens.set(name, paths);
+    const paths = usageByToken.get(name) ?? [];
+    paths.push(...usedBy.map((path) => relativePath(frame, path)));
+    usageByToken.set(name, paths);
   }
   return {
     frame,
-    tokens: Object.fromEntries([...tokens].sort(([a], [b]) => a.localeCompare(b)).map(([name, paths]) => [name, paths.sort()]))
+    tokens: Object.fromEntries(sortedEntries(usageByToken).map(([name, paths]) => [name, paths.sort()]))
   };
+}
+
+function normalizeVariant(variant: ComponentVariant): ComponentVariant {
+  return {
+    ...variant,
+    properties: Object.fromEntries(sortedEntries(variant.properties)),
+    variables: uniqueSorted(variant.variables)
+  };
+}
+
+function collectVariantProperties(variants: ComponentVariant[]) {
+  const valuesByProperty = new Map<string, Set<string>>();
+  for (const variant of variants) {
+    for (const [name, value] of Object.entries(variant.properties)) {
+      const values = valuesByProperty.get(name) ?? new Set<string>();
+      values.add(value);
+      valuesByProperty.set(name, values);
+    }
+  }
+  return Object.fromEntries(sortedEntries(valuesByProperty).map(([name, values]) => [name, uniqueSorted(values)]));
+}
+
+function relativePath(frame: string, path: string) {
+  if (path === frame) return ".";
+  const prefix = `${frame} / `;
+  return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+}
+
+function uniqueSorted(values: Iterable<string>) {
+  return [...new Set(values)].sort();
+}
+
+function sortedEntries<T>(values: Map<string, T> | Record<string, T>) {
+  return [...(values instanceof Map ? values.entries() : Object.entries(values))].sort(([a], [b]) => a.localeCompare(b));
 }

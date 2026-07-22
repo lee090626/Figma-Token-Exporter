@@ -88,66 +88,94 @@
       return value >>> 0;
     });
 
-    onmessage = ({ data }) => {
-      const message = data.pluginMessage;
+    onmessage = ({ data }) => handlePluginMessage(data.pluginMessage);
+
+    function handlePluginMessage(message) {
       if (message.type === "error") {
-        files = undefined;
-        document.getElementById("result").hidden = true;
-        document.getElementById("status").hidden = false;
-        document.getElementById("status").textContent = `오류: ${message.message}`;
+        showExportError(message.message);
         return;
       }
       if (message.type === "manifest" || message.type === "manifest-error") {
-        const section = document.getElementById("selectionManifests");
-        section.hidden = false;
-        const status = document.getElementById("selectionManifestStatus");
-        if (message.type === "manifest-error") {
-          status.textContent = friendlyManifestError(message.kind, message.message);
-          return;
-        }
-        status.textContent = "선택한 Frame, Component, Component Set별 결과입니다.";
-        const button = document.createElement("button");
-        button.type = "button";
-        button.textContent = message.kind === "frames"
-          ? `${message.count}개 Frame · ${message.tokenCount}개 Token · ${message.usageCount}회 적용 다운로드`
-          : `${message.count}개 ${message.kind === "components" ? "Component" : "Component Set"} · ${message.variableCount}개 Variable 다운로드`;
-        button.onclick = () => triggerDownload(
-          new Blob([message.kind === "frames" ? createZip(Object.entries(message.files)) : message.file], { type: message.kind === "frames" ? "application/zip" : "application/json" }),
-          message.filename
-        );
-        document.getElementById("selectionManifestDownloads").append(button);
+        showSelectionManifest(message);
         return;
       }
-      if (message.type !== "exports") return;
+      if (message.type === "exports") showExports(message);
+    }
 
+    function showExportError(message) {
+      files = undefined;
+      document.getElementById("result").hidden = true;
+      document.getElementById("status").hidden = false;
+      document.getElementById("status").textContent = `오류: ${message}`;
+    }
+
+    function showSelectionManifest(message) {
+      document.getElementById("selectionManifests").hidden = false;
+      const status = document.getElementById("selectionManifestStatus");
+      if (message.type === "manifest-error") {
+        status.textContent = friendlyManifestError(message.kind, message.message);
+        return;
+      }
+      status.textContent = "선택한 Frame, Component, Component Set별 결과입니다.";
+      document.getElementById("selectionManifestDownloads").append(createManifestDownloadButton(message));
+    }
+
+    function createManifestDownloadButton(message) {
+      const isFrameExport = message.kind === "frames";
+      const label = isFrameExport
+        ? `${message.count}개 Frame · ${message.tokenCount}개 Token · ${message.usageCount}회 적용 다운로드`
+        : `${message.count}개 ${message.kind === "components" ? "Component" : "Component Set"} · ${message.variableCount}개 Variable 다운로드`;
+      return createDownloadButton(label, () => {
+        const content = isFrameExport ? createZip(Object.entries(message.files)) : message.file;
+        triggerDownload(new Blob([content], { type: isFrameExport ? "application/zip" : "application/json" }), message.filename);
+      });
+    }
+
+    function showExports(message) {
       files = message.files;
       document.getElementById("status").hidden = true;
       document.getElementById("result").hidden = false;
       document.getElementById("tokenCount").textContent = `${message.count}개 토큰을 읽었습니다.`;
-      document.getElementById("counts").replaceChildren(...tokenTypes.filter((type) => message.typeCounts?.[type]).map((type) => {
+      showTypeCounts(message.typeCounts);
+      showSkippedVariables(message.skippedVariables || []);
+      showExportDownloads();
+    }
+
+    function showTypeCounts(typeCounts) {
+      const counts = tokenTypes.filter((type) => typeCounts?.[type]).map((type) => {
         const item = document.createElement("li");
-        item.textContent = `${type} ${message.typeCounts[type]}개`;
+        item.textContent = `${type} ${typeCounts[type]}개`;
         return item;
-      }));
-      const skippedVariables = message.skippedVariables || [];
-      const warning = document.getElementById("warning");
-      warning.hidden = !skippedVariables.length;
+      });
+      document.getElementById("counts").replaceChildren(...counts);
+    }
+
+    function showSkippedVariables(skippedVariables) {
+      document.getElementById("warning").hidden = !skippedVariables.length;
       document.getElementById("skippedStatus").textContent = "다음 변수는 이름 규칙과 맞지 않아 제외되었습니다.";
       document.getElementById("skipped").replaceChildren(...skippedVariables.map((name) => {
         const item = document.createElement("li");
         item.textContent = name;
         return item;
       }));
+    }
+
+    function showExportDownloads() {
       document.getElementById("downloadAll").onclick = () => downloadAll();
       document.getElementById("downloadTokens").onclick = () => download("tokens.json");
-      document.getElementById("individualDownloads").replaceChildren(...Object.keys(files).filter((filename) => filename !== "tokens.json").map((filename) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.textContent = `${filename} 다운로드`;
-        button.onclick = () => download(filename);
-        return button;
-      }));
-    };
+      const buttons = Object.keys(files)
+        .filter((filename) => filename !== "tokens.json")
+        .map((filename) => createDownloadButton(`${filename} 다운로드`, () => download(filename)));
+      document.getElementById("individualDownloads").replaceChildren(...buttons);
+    }
+
+    function createDownloadButton(label, onClick) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.onclick = onClick;
+      return button;
+    }
 
     function download(filename) {
       triggerDownload(new Blob([files[filename]], { type: "text/plain" }), filename);
