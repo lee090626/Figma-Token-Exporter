@@ -30,6 +30,10 @@
     .individual-actions { display: grid; gap: 6px; margin-top: 10px; }
     #warning { margin-top: 10px; color: var(--figma-color-text-danger); }
     #warning[hidden] { display: none; }
+    .steps { display: grid; gap: 4px; margin: 0 0 10px; padding: 0; list-style: none; }
+    .steps li::before { content: "☐ "; }
+    .steps li.done::before { content: "✓ "; color: var(--figma-color-text-success); }
+    .steps li.done { color: var(--figma-color-text-secondary); }
   </style>
 </head>
 <body>
@@ -71,6 +75,30 @@
       <p class="muted">CLI는 파일 적용과 최신 상태 검사를 위한 선택 도구입니다.</p>
     </section>
 
+    <section class="cli" aria-labelledby="ci-title">
+      <strong id="ci-title" class="section-title">PR마다 Figma와 코드 차이 검사</strong>
+      <ul class="steps" aria-label="설정 진행 상황">
+        <li id="stepRead">토큰 읽기</li>
+        <li id="stepDownload">토큰 파일 다운로드</li>
+        <li id="stepCi">CI workflow 추가</li>
+      </ul>
+      <p>Figma 값이 바뀌었는데 코드가 그대로면 PR 검사가 실패하고, 바뀐 토큰과 고치는 명령을 보여줍니다.</p>
+      <p class="muted">저장소 Secrets에 FIGMA_TOKEN, FIGMA_FILE_KEY를 등록한 뒤 아래 파일을 .github/workflows/에 넣으세요.</p>
+      <div class="individual-actions">
+        <button id="copyWorkflow" type="button">workflow 복사</button>
+        <button id="downloadWorkflow" type="button">figma-token.yml 다운로드</button>
+      </div>
+      <p id="workflowStatus" class="muted" role="status"></p>
+    </section>
+
+    <section class="cli" aria-labelledby="waitlist-title">
+      <strong id="waitlist-title" class="section-title">팀 기능 대기 명단</strong>
+      <p>PR 코멘트 리포트, 여러 형식 한 번에 검사, 알림을 준비 중입니다. 지금 기능은 모두 무료입니다.</p>
+      <div class="individual-actions">
+        <button id="joinWaitlist" type="button">대기 명단 남기기 (GitHub)</button>
+      </div>
+    </section>
+
     <details>
       <summary>개별 형식 다운로드</summary>
       <div id="individualDownloads" class="individual-actions"></div>
@@ -83,6 +111,21 @@
     const tokenTypes = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
     const utf8Flag = 0x0800;
     const textEncoder = new TextEncoder();
+    const workflowYaml = [
+      "name: Figma token drift",
+      "on: [pull_request]",
+      "jobs:",
+      "  figma-drift:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - uses: actions/checkout@v4",
+      "      # --format, --output을 프로젝트의 토큰 파일에 맞게 바꾸세요.",
+      "      - run: npx figma-token sync --check --format variables-css --output ./src/tokens/variables.css",
+      "        env:",
+      "          FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}",
+      "          FIGMA_FILE_KEY: ${{ secrets.FIGMA_FILE_KEY }}",
+      ""
+    ].join("\n");
     const crcTable = Uint32Array.from({ length: 256 }, (_, index) => {
       let value = index;
       for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
@@ -140,6 +183,22 @@
       showTypeCounts(message.typeCounts);
       showSkippedVariables(message.skippedVariables || []);
       showExportDownloads();
+      markStep("stepRead");
+    }
+
+    function markStep(id) {
+      document.getElementById(id).classList.add("done");
+    }
+
+    function copyWorkflow() {
+      const textarea = document.createElement("textarea");
+      textarea.value = workflowYaml;
+      document.body.append(textarea);
+      textarea.select();
+      const copied = document.execCommand("copy");
+      textarea.remove();
+      document.getElementById("workflowStatus").textContent = copied ? "복사했습니다. .github/workflows/figma-token.yml로 저장하세요." : "복사하지 못했습니다. 파일로 다운로드하세요.";
+      if (copied) markStep("stepCi");
     }
 
     function showTypeCounts(typeCounts) {
@@ -164,6 +223,12 @@
     function showExportDownloads() {
       document.getElementById("downloadAll").onclick = () => downloadAll();
       document.getElementById("downloadTokens").onclick = () => download("tokens.json");
+      document.getElementById("copyWorkflow").onclick = () => copyWorkflow();
+      document.getElementById("joinWaitlist").onclick = () => parent.postMessage({ pluginMessage: { type: "open-waitlist" } }, "*");
+      document.getElementById("downloadWorkflow").onclick = () => {
+        triggerDownload(new Blob([workflowYaml], { type: "text/yaml" }), "figma-token.yml");
+        markStep("stepCi");
+      };
       const buttons = Object.keys(files)
         .filter((filename) => filename !== "tokens.json")
         .map((filename) => createDownloadButton(`${filename} 다운로드`, () => download(filename)));
@@ -179,6 +244,7 @@
     }
 
     function download(filename) {
+      markStep("stepDownload");
       triggerDownload(new Blob([files[filename]], { type: "text/plain" }), filename);
     }
 
@@ -196,6 +262,7 @@
     }
 
     function downloadAll() {
+      markStep("stepDownload");
       triggerDownload(new Blob([createZip(Object.entries(files))], { type: "application/zip" }), "figma-token-export.zip");
     }
 
