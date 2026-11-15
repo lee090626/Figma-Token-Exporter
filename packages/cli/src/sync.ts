@@ -1,4 +1,4 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
   diffTokens,
@@ -22,6 +22,7 @@ export interface SyncOptions {
   format: "tokens-json" | "theme-ts" | "variables-css" | "tokens-scss" | "tailwind-css" | "tokens-dtcg-json";
   exportName: string;
   dryRun: boolean;
+  check?: boolean;
   figmaToken?: string;
   fileKey?: string;
 }
@@ -100,11 +101,41 @@ function logDiffSummary(tokens: DesignToken[], snapshot: DesignToken[], log: (me
   diffs.forEach((diff) => log(`${diff.type} ${diff.token.path.join("/")}`));
 }
 
-export async function sync(options: SyncOptions, log = console.log, warn = console.warn): Promise<void> {
+async function readOutput(path: string): Promise<string | undefined> {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw new Error(`Cannot read output file: ${path}`);
+  }
+}
+
+async function writeStepSummary(status: string, fix: string | undefined, diffs: ReturnType<typeof diffTokens>): Promise<void> {
+  const path = process.env.GITHUB_STEP_SUMMARY;
+  if (!path) return;
+  const lines = ["### Figma token drift", "", status, ""];
+  if (diffs.length) lines.push("| Change | Token |", "| --- | --- |", ...diffs.map((diff) => `| ${diff.type} | \`${diff.token.path.join("/")}\` |`), "");
+  if (fix) lines.push("Fix:", "", "```bash", fix, "```", "");
+  lines.push("<sub>Checked by [figma-token](https://www.npmjs.com/package/figma-token)</sub>", "");
+  await appendFile(path, lines.join("\n"));
+}
+
+export async function sync(options: SyncOptions, log = console.log, warn = console.warn): Promise<0 | 1 | void> {
+  if (options.check && options.dryRun) throw new Error("--check와 --dry-run은 함께 사용할 수 없습니다. 하나만 사용하세요.");
   if (!options.input && (!options.figmaToken || !options.fileKey)) throw new Error("--input 또는 FIGMA_TOKEN과 FIGMA_FILE_KEY가 필요합니다.");
   const current = await readCurrentTokens(options, warn);
   const snapshot = await readSnapshot(options.snapshot);
   logDiffSummary(current, snapshot, log);
+  if (options.check) {
+    const output = await readOutput(options.output);
+    const upToDate = output === render(current, options);
+    const status = upToDate ? `✓ Up to date with Figma: ${options.output}` : `Out of date with Figma: ${options.output} (${output === undefined ? "missing" : "changed"})`;
+    const fix = `npx figma-token sync --format ${options.format} --output ${options.output}`;
+    log(status);
+    if (!upToDate) log(`Fix: ${fix}`);
+    await writeStepSummary(status, upToDate ? undefined : fix, diffTokens(snapshot, current));
+    return upToDate ? 0 : 1;
+  }
   if (options.dryRun) return;
   await save([
     { path: options.output, contents: render(current, options) },
