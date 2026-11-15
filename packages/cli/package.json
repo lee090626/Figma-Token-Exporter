@@ -7,7 +7,7 @@
   "bin": { "figma-token": "dist/index.js" },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lee090626/Project-F.git",
+    "url": "git+https://github.com/lee090626/Figma-Token-Exporter.git",
     "directory": "packages/cli"
   },
   "files": [
