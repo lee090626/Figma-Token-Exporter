@@ -10,7 +10,7 @@
   "exports": "./dist/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lee090626/Project-F.git",
+    "url": "https://github.com/lee090626/Figma-Token-Exporter.git",
     "directory": "packages/core"
   },
   "files": [

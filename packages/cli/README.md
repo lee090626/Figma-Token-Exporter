@@ -53,4 +53,4 @@ npx figma-token --check --out ./src/tokens
 
 The hidden `sync` command retains the previous single-format, snapshot, and Figma REST API flow for advanced users. It accepts `--input`, `--output`, `--snapshot`, `--format`, `--export-name`, `--figma-token`, `--file-key`, and `--dry-run`.
 
-For Plugin usage and project-wide documentation, see <https://github.com/lee090626/Project-F>.
+For Plugin usage and project-wide documentation, see <https://github.com/lee090626/Figma-Token-Exporter>.
