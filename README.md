@@ -2,6 +2,25 @@
 
 Figma Plugin에서 현재 파일의 Variables를 읽어 개발자가 바로 쓰는 코드 파일로 다운로드합니다. 토큰 생성/편집/저장소 동기화는 하지 않는 lightweight exporter입니다.
 
+Figma에서 바뀐 토큰이 코드에 반영되지 않았으면 PR 단계에서 막습니다.
+
+```bash
+npx figma-token sync --check --format variables-css --output ./src/tokens/variables.css
+```
+
+```text
+Added: 0
+Changed: 1
+Removed: 0
+changed color/primary
+Out of date with Figma: ./src/tokens/variables.css (changed)
+Fix: npx figma-token sync --format variables-css --output ./src/tokens/variables.css
+```
+
+GitHub Actions 설정은 [CI drift check](#ci-drift-check)를 참고하세요. Plugin의 "workflow 복사" 버튼으로도 받을 수 있습니다.
+
+모든 기능은 무료입니다. PR 코멘트 리포트, 여러 형식 한 번에 검사, 알림 같은 팀 기능이 필요하면 [대기 명단](https://github.com/lee090626/Figma-Token-Exporter/issues/new?template=team-waitlist.yml)에 남겨 주세요.
+
 Phase 1 export:
 
 - `tokens.json`
@@ -53,6 +72,28 @@ npx figma-token sync --format variables-css --output ./variables.css
 npx figma-token sync --format tokens-scss --output ./tokens.scss
 npx figma-token sync --format tailwind-css --output ./tailwind.css
 npx figma-token sync --format tokens-dtcg-json --output ./tokens.dtcg.json
+```
+
+### CI drift check
+
+`sync --check`는 Figma 최신 Variables로 만든 결과와 저장소의 출력 파일을 비교합니다. 파일을 쓰지 않으며, 다르거나 파일이 없으면 snapshot 대비 변경 토큰 목록을 출력하고 exit code 1로 끝납니다. 고치는 명령(`Fix: …`)도 함께 출력합니다. GitHub Actions에서는 같은 내용을 Job Summary에 표로 남깁니다.
+
+```bash
+npx figma-token sync --check --format variables-css --output ./src/tokens/variables.css
+```
+
+```yaml
+# .github/workflows/figma-token.yml
+on: [pull_request]
+jobs:
+  figma-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx figma-token sync --check --format variables-css --output ./src/tokens/variables.css
+        env:
+          FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}
+          FIGMA_FILE_KEY: ${{ secrets.FIGMA_FILE_KEY }}
 ```
 
 `tokens-json`은 normalized token 배열을, 나머지 포맷은 이 배열만 입력으로 변환합니다. `--dry-run`은 입력과 snapshot을 읽고 diff를 출력하지만 파일은 쓰지 않습니다.
