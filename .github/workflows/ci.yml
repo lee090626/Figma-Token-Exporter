@@ -56,7 +56,7 @@ jobs:
     if: needs.release-check.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       id-token: write
     concurrency:
       group: npm-publish
@@ -89,3 +89,13 @@ jobs:
             exit "$status"
           fi
           npm publish
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p "require('./packages/cli/package.json').version")"
+          if gh release view "v$version" > /dev/null 2>&1; then
+            echo "Release v$version already exists."
+            exit 0
+          fi
+          gh release create "v$version" --target "$GITHUB_SHA" --title "v$version" --generate-notes
