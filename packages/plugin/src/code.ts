@@ -3,6 +3,7 @@
 import { createComponentManifest, createFrameManifest, frameManifestFiles, variableIdsFromBindings } from "./componentManifest.js";
 import { createExports } from "./exportVariables.js";
 
+const WAITLIST_URL = "https://github.com/lee090626/Figma-Token-Exporter/issues/new?template=team-waitlist.yml";
 const UI_WIDTH = 420;
 const MIN_UI_HEIGHT = 260;
 const MAX_UI_HEIGHT = 640;
@@ -12,6 +13,10 @@ figma.showUI(__html__, { width: UI_WIDTH, height: MIN_UI_HEIGHT, themeColors: tr
 figma.ui.onmessage = (message) => {
   if (message.type === "resize") {
     figma.ui.resize(UI_WIDTH, clampUiHeight(message.height));
+    return;
+  }
+  if (message.type === "open-waitlist") {
+    figma.openExternal(WAITLIST_URL);
     return;
   }
   if (message.type !== "ui-ready") return;

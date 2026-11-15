@@ -1,0 +1,30 @@
+name: Team waitlist
+description: 팀 기능(PR 코멘트, 여러 형식 한 번에 검사, 알림) 출시 소식을 받고 싶다면 남겨 주세요.
+title: "[Waitlist] "
+labels: ["waitlist"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        지금 기능은 모두 무료입니다. 팀 기능을 만들지 판단하기 위한 대기 명단이며, 결제는 받지 않습니다.
+        이 이슈는 공개됩니다. 이메일이나 회사 기밀은 적지 마세요. 출시되면 이 이슈에 댓글로 알려 드립니다.
+  - type: dropdown
+    id: team-size
+    attributes:
+      label: 팀 규모
+      options: ["혼자", "2-5명", "6-20명", "21명 이상"]
+    validations:
+      required: true
+  - type: textarea
+    id: pain
+    attributes:
+      label: Figma와 코드 토큰이 어긋나서 최근에 생긴 문제
+      description: 예) 디자이너가 primary 색을 바꿨는데 배포까지 반영이 안 됐다
+  - type: checkboxes
+    id: wants
+    attributes:
+      label: 필요한 기능
+      options:
+        - label: PR 코멘트로 drift 리포트
+        - label: 여러 형식 한 번에 검사
+        - label: Slack 알림
