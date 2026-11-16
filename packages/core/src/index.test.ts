@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   diffTokens,
+  formatAliasWarning,
+  formatUnsupportedVariableWarning,
   isDesignTokenArray,
   normalizeFigmaVariables,
   renderCssVariables,
@@ -10,7 +12,11 @@ import {
   renderScssVariables,
   renderTailwindTheme,
   renderTheme,
+  renderToken,
+  renderTokenFiles,
+  renderFormats,
   renderTokensJson,
+  supportedTokenTypes,
   generateVariableName,
   type DesignToken
 } from "./index.js";
@@ -72,6 +78,28 @@ const figmaInput = { meta: {
 } };
 
 describe("core", () => {
+  it("shares the supported token type catalog with adapters", () => {
+    expect(supportedTokenTypes).toEqual(["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"]);
+  });
+
+  it("renders the shared output catalog without changing format order or contents", () => {
+    expect(renderTokenFiles(outputTokens)).toEqual(numericOutputFiles);
+    expect(renderFormats).toEqual(["tokens-json", "theme-ts", "variables-css", "tokens-scss", "tailwind-css", "tokens-dtcg-json"]);
+    expect(renderToken(outputTokens, "tokens-json")).toBe(numericOutputFiles["tokens.json"]);
+    expect(renderToken(outputTokens, "theme-ts", "customTheme")).toBe(renderTheme(outputTokens, "customTheme"));
+    expect(renderToken(outputTokens, "variables-css")).toBe(numericOutputFiles["variables.css"]);
+    expect(renderToken(outputTokens, "tokens-scss")).toBe(numericOutputFiles["tokens.scss"]);
+    expect(renderToken(outputTokens, "tailwind-css")).toBe(numericOutputFiles["tailwind.css"]);
+    expect(renderToken(outputTokens, "tokens-dtcg-json")).toBe(numericOutputFiles["tokens.dtcg.json"]);
+  });
+
+  it("formats normalization warnings consistently for adapters", () => {
+    expect(formatUnsupportedVariableWarning("ExtraLarge - 28", "unclassified-float", "Shape"))
+      .toBe("unclassified FLOAT variable skipped: ExtraLarge - 28 (collection: Shape)");
+    expect(formatAliasWarning("color/base", "alias-mode-mismatch", "Brand"))
+      .toBe("alias mode mismatch skipped: color/base (collection: Brand)");
+  });
+
   it("normalizes supported Figma variables, resolves aliases, uses one mode, and skips unsupported types", () => {
     const skipped: string[] = [];
     expect(normalizeFigmaVariables(figmaInput, { onUnsupported: (name, reason, collection) => skipped.push(`${reason}:${name}:${collection ?? ""}`) })).toMatchInlineSnapshot(`

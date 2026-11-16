@@ -2,15 +2,14 @@ import { mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
   diffTokens,
+  formatAliasWarning,
+  formatUnsupportedVariableWarning,
   isDesignTokenArray,
   normalizeFigmaVariables,
-  renderCssVariables,
-  renderDtcgJson,
-  renderScssVariables,
-  renderTailwindTheme,
-  renderTheme,
+  renderToken,
   renderTokensJson,
-  type DesignToken
+  type DesignToken,
+  type RenderFormat
 } from "@lee090626/core";
 import { fetchFigmaVariables } from "./figma/fetchFigmaVariables.js";
 import { writeFilesAtomically } from "./writeFiles.js";
@@ -19,24 +18,12 @@ export interface SyncOptions {
   input?: string;
   output: string;
   snapshot: string;
-  format: "tokens-json" | "theme-ts" | "variables-css" | "tokens-scss" | "tailwind-css" | "tokens-dtcg-json";
+  format: RenderFormat;
   exportName: string;
   dryRun: boolean;
   figmaToken?: string;
   fileKey?: string;
 }
-
-type SyncFormat = SyncOptions["format"];
-type TokenRenderer = (tokens: DesignToken[], exportName: string) => string;
-
-const renderers: Record<SyncFormat, TokenRenderer> = {
-  "tokens-json": (tokens) => renderTokensJson(tokens),
-  "theme-ts": (tokens, exportName) => renderTheme(tokens, exportName),
-  "variables-css": (tokens) => renderCssVariables(tokens),
-  "tokens-scss": (tokens) => renderScssVariables(tokens),
-  "tailwind-css": (tokens) => renderTailwindTheme(tokens),
-  "tokens-dtcg-json": (tokens) => renderDtcgJson(tokens)
-};
 
 const changeTypes = ["added", "changed", "removed"] as const;
 
@@ -66,17 +53,7 @@ async function save(files: Array<{ path: string; contents: string }>): Promise<v
 }
 
 function render(tokens: DesignToken[], options: SyncOptions): string {
-  return renderers[options.format](tokens, options.exportName);
-}
-
-function skippedMessage(name: string, reason: "unclassified-float" | "unsupported-type", collection?: string): string {
-  const suffix = collection ? ` (collection: ${collection})` : "";
-  return reason === "unclassified-float" ? `unclassified FLOAT variable skipped: ${name}${suffix}` : `unsupported type skipped: ${name}${suffix}`;
-}
-
-function aliasSkippedMessage(name: string, reason: "alias-target-missing" | "alias-cycle" | "alias-type-mismatch" | "alias-mode-mismatch", collection?: string): string {
-  const suffix = collection ? ` (collection: ${collection})` : "";
-  return `alias ${reason.replace(/^alias-/, "").replace(/-/g, " ")} skipped: ${name}${suffix}`;
+  return renderToken(tokens, options.format, options.exportName);
 }
 
 async function readCurrentTokens(options: SyncOptions, warn: (message: string) => void): Promise<DesignToken[]> {
@@ -87,8 +64,8 @@ async function readCurrentTokens(options: SyncOptions, warn: (message: string) =
   if (isDesignTokenArray(source)) return source;
 
   return normalizeFigmaVariables(source, {
-    onUnsupported: (name, reason, collection) => warn(skippedMessage(name, reason, collection)),
-    onAliasWarning: (name, reason, collection) => warn(aliasSkippedMessage(name, reason, collection))
+    onUnsupported: (name, reason, collection) => warn(formatUnsupportedVariableWarning(name, reason, collection)),
+    onAliasWarning: (name, reason, collection) => warn(formatAliasWarning(name, reason, collection))
   });
 }
 

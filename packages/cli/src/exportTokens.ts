@@ -2,19 +2,14 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   isDesignTokenArray,
-  renderCssVariables,
-  renderDtcgJson,
-  renderScssVariables,
-  renderTailwindTheme,
-  renderTheme,
-  renderTokensJson,
-  type DesignToken
+  renderTokenFiles,
+  tokenFileNames,
+  type DesignToken,
+  type TokenFiles
 } from "@lee090626/core";
 import { writeFilesAtomically } from "./writeFiles.js";
 
-export const tokenFileNames = ["tokens.json", "theme.ts", "variables.css", "tokens.scss", "tailwind.css", "tokens.dtcg.json"] as const;
-type TokenFileName = (typeof tokenFileNames)[number];
-type TokenFiles = Record<TokenFileName, string>;
+export { tokenFileNames };
 
 export interface ExportTokensOptions {
   input: string;
@@ -58,17 +53,6 @@ async function readPluginTokens(input: string): Promise<{ inputPath: string; tok
   }
   if (!isDesignTokenArray(raw)) throw new Error(`Unsupported input: expected Plugin tokens.json: ${inputPath}`);
   return { inputPath, tokens: raw };
-}
-
-function renderTokenFiles(tokens: DesignToken[]): TokenFiles {
-  return {
-    "tokens.json": renderTokensJson(tokens),
-    "theme.ts": renderTheme(tokens),
-    "variables.css": renderCssVariables(tokens),
-    "tokens.scss": renderScssVariables(tokens),
-    "tailwind.css": renderTailwindTheme(tokens),
-    "tokens.dtcg.json": renderDtcgJson(tokens)
-  };
 }
 
 async function prepareTokenFiles(options: ExportTokensOptions): Promise<PreparedTokenFiles> {

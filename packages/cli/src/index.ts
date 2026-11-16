@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 import "dotenv/config";
 import { Command, InvalidArgumentError } from "commander";
+import { renderFormats, type RenderFormat } from "@lee090626/core";
 import { runDefaultWorkflow } from "./runDefaultWorkflow.js";
 import { sync } from "./sync.js";
 
-const syncFormats = ["tokens-json", "theme-ts", "variables-css", "tokens-scss", "tailwind-css", "tokens-dtcg-json"];
+const syncFormats: readonly string[] = renderFormats;
 
-function parseSyncFormat(value: string): string {
+function parseSyncFormat(value: string): RenderFormat {
   if (!syncFormats.includes(value)) throw new InvalidArgumentError(`format은 ${syncFormats.join(", ")} 중 하나여야 합니다.`);
-  return value;
+  return value as RenderFormat;
 }
 
 const program = new Command()
