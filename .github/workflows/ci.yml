@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Started by release.yml after it bumps versions on main.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,7 +28,7 @@ jobs:
       - run: pnpm exec tsc --noEmit
 
   release-check:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       publish: ${{ steps.version.outputs.publish }}
@@ -104,7 +106,7 @@ jobs:
   # then a maintainer clicks "Publish new version" in the Figma desktop app.
   plugin-release:
     needs: [test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
