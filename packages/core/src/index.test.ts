@@ -593,6 +593,23 @@ describe("core", () => {
     expect(warnings).toEqual(["alias-mode-mismatch:color/base (mode: dark):Brand"]);
   });
 
+  it("resolves aliases into another collection with that collection's default mode", () => {
+    const warnings: string[] = [];
+    const result = normalizeFigmaVariables({
+      variableCollections: {
+        primitives: { name: "Primitives", defaultModeId: "value", modes: [{ modeId: "value", name: "Value" }] },
+        semantic: { name: "Semantic", defaultModeId: "light", modes: [{ modeId: "light", name: "Light" }, { modeId: "dark", name: "Dark" }] }
+      },
+      variables: {
+        red: { name: "color/red", variableCollectionId: "primitives", resolvedType: "COLOR", valuesByMode: { value: { r: 1, g: 0, b: 0, a: 1 } } },
+        danger: { name: "color/danger", variableCollectionId: "semantic", resolvedType: "COLOR", valuesByMode: { light: { type: "VARIABLE_ALIAS", id: "red" }, dark: { type: "VARIABLE_ALIAS", id: "red" } } }
+      }
+    }, { onAliasWarning: (name, reason) => warnings.push(`${reason}:${name}`) });
+
+    expect(result).toContainEqual(expect.objectContaining({ name: "color/danger", mode: "Light", value: { r: 255, g: 0, b: 0, a: 1 } }));
+    expect(warnings).toEqual([]);
+  });
+
   it("rejects invalid exports, duplicate paths, and invalid normalized tokens", () => {
     expect(isDesignTokenArray(tokens)).toBe(true);
     expect(isDesignTokenArray([{ name: "a", path: ["a"], type: "number", value: 1 }])).toBe(false);
