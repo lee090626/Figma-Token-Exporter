@@ -17,9 +17,13 @@ figma.clientStorage.getAsync(UI_SIZE_KEY).then((size) => {
 type UiMessage =
   | { type: "ui-ready"; requestId?: number }
   | { type: "refresh"; requestId?: number }
+  | { type: "read-selection"; requestId?: number }
   | { type: "user-resize"; width: number; height: number; done: boolean }
   | { type: "save-progress"; progress?: { step2?: boolean; step3?: boolean } }
   | { type: "open-waitlist" };
+
+// Plugin → UI: "selection-changed" asks the UI to request a fresh selection analysis (it debounces).
+figma.on("selectionchange", () => figma.ui.postMessage({ type: "selection-changed" }));
 
 figma.ui.onmessage = (message: UiMessage) => {
   if (message.type === "user-resize") {
@@ -38,6 +42,10 @@ figma.ui.onmessage = (message: UiMessage) => {
   }
   if (message.type === "refresh") {
     sendVariables(message.requestId).catch((error: unknown) => sendExportError(error, message.requestId));
+    sendSelectionManifests(message.requestId);
+    return;
+  }
+  if (message.type === "read-selection") {
     sendSelectionManifests(message.requestId);
     return;
   }
