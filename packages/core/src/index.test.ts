@@ -553,6 +553,7 @@ describe("core", () => {
     const old = [tokens[3], tokens[4]];
     const current = [{ ...tokens[3], value: 10 }, tokens[5]];
     expect(diffTokens(old, current).map(({ type, token }) => `${type}:${token.name}`)).toEqual(["added:radius/medium", "removed:spacing/layout/card/gap", "changed:spacing/small"]);
+    expect(diffTokens(old, current).find(({ type }) => type === "changed")?.previous).toBe(tokens[3]);
   });
 
   it("warns when alias targets are missing, cyclic, or the wrong type", () => {

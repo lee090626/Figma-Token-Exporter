@@ -20,6 +20,16 @@ it("creates files that can be downloaded directly", () => {
   expect(Object.keys(result.files)).toEqual(["tokens.json", "theme.ts", "variables.css", "tokens.scss", "tailwind.css", "tokens.dtcg.json"]);
 });
 
+it("lists changes since the saved baseline", () => {
+  const collections = [{ id: "c", name: "Brand", modes: [{ modeId: "light", name: "Light" }] }];
+  const variable = { id: "v", name: "spacing/base", description: "", variableCollectionId: "c", resolvedType: "FLOAT" as const, valuesByMode: { light: 8 } };
+  const baseline = exportVariables(collections, [variable]);
+  expect(createExports(collections, [variable]).changes).toBeNull();
+  expect(createExports(collections, [variable], baseline).changes).toEqual([]);
+  const changes = createExports(collections, [{ ...variable, valuesByMode: { light: 12 } }], baseline).changes;
+  expect(changes?.map(({ type, token, previous }) => [type, token.value, previous?.value])).toEqual([["changed", 12, 8]]);
+});
+
 it("exports border widths and sizes from Plugin variables", () => {
   const result = createExports(
     [

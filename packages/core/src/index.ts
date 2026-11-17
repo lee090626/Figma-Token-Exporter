@@ -20,6 +20,8 @@ export interface DesignToken {
 export interface TokenDiff {
   type: "added" | "removed" | "changed";
   token: DesignToken;
+  /** The earlier token, set only for "changed". */
+  previous?: DesignToken;
 }
 
 type UnsupportedReason = "unclassified-float" | "unsupported-type";
@@ -225,7 +227,7 @@ export function diffTokens(previous: DesignToken[], current: DesignToken[]): Tok
   for (const [key, token] of after) {
     const old = before.get(key);
     if (!old) diffs.push({ type: "added", token });
-    else if (JSON.stringify(old) !== JSON.stringify(token)) diffs.push({ type: "changed", token });
+    else if (JSON.stringify(old) !== JSON.stringify(token)) diffs.push({ type: "changed", token, previous: old });
   }
   for (const [key, token] of before) if (!after.has(key)) diffs.push({ type: "removed", token });
   const order = { added: 0, changed: 1, removed: 2 };

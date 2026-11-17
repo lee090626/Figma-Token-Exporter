@@ -167,6 +167,7 @@
     <div class="brand hide-sm"><span class="logo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4L1.5 8 5 12M11 4l3.5 4-3.5 4"/></svg></span>Token Exporter</div>
     <button type="button" data-view="tokens" aria-current="page"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="2"/><rect x="9" y="2" width="5" height="5" rx="2"/><rect x="2" y="9" width="5" height="5" rx="2"/><rect x="9" y="9" width="5" height="5" rx="2"/></svg>Tokens<span id="navCount" class="end mono">–</span></button>
     <button type="button" data-view="check"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8l6.5 11.7H1.5z"/><path d="M8 6.5v3M8 11.6v.1"/></svg>점검<span id="checkCount" class="end mono"></span></button>
+    <button type="button" data-view="changes"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 109.6-3.6M12.5 2v2.8H9.7"/><path d="M8 5v3l2 1.5"/></svg>변경 내역<span id="changesCount" class="end mono"></span></button>
     <button type="button" data-view="connect"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 014.5 9l1-1"/></svg>Connect<span class="end"><span id="doneCount" class="mono">1/3</span><span id="navBlob" class="blob" aria-hidden="true"></span></span></button>
     <button type="button" data-view="selection" id="navSelection"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 5V2.5h2.5M11.5 2.5H14V5M14 11v2.5h-2.5M4.5 13.5H2V11"/><rect x="5" y="5" width="6" height="6" rx="2"/></svg>선택 분석<span id="selectionCount" class="end mono"></span></button>
     <div class="nav-group hide-sm">Team</div>
@@ -307,6 +308,27 @@
       </div>
     </section>
 
+    <section id="view-changes" class="view" hidden>
+      <header class="topbar">
+        <h1>변경 내역</h1><span id="changesTotal" class="mono muted"></span>
+        <span class="spacer"></span>
+        <button id="saveBaseline" type="button" title="지금 토큰을 비교 기준으로 저장">지금을 기준으로</button>
+      </header>
+      <div class="body">
+        <div id="changesNone" class="state" hidden>
+          <span class="blob sleepy" style="width: 56px; height: 50px" aria-hidden="true"></span>
+          <strong>아직 비교할 기준이 없어요</strong>
+          <p>토큰을 다운로드하면 그때를 기준으로, 이후 Figma에서 바뀐 토큰을 보여 드려요.</p>
+        </div>
+        <div id="changesSame" class="state" hidden>
+          <span class="blob happy" style="width: 56px; height: 50px" aria-hidden="true"></span>
+          <strong>기준 이후 바뀐 토큰이 없어요</strong>
+        </div>
+        <p id="changesSince" class="muted"></p>
+        <div id="changesList" class="diff mono" style="padding: 0; grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr)"></div>
+      </div>
+    </section>
+
     <section id="view-selection" class="view" hidden>
       <header class="topbar"><h1>선택 분석</h1></header>
       <div class="body">
@@ -391,6 +413,7 @@
 
     function handlePluginMessage(message) {
       if (message.type === "selection-changed") return readSelectionSoon();
+      if (message.type === "baseline-saved") return baselineSaved(message);
       const isManifest = message.type === "manifest" || message.type === "manifest-error";
       if (message.type !== "progress" && message.requestId !== (isManifest ? selectionId : requestId)) return;
       if (message.type === "error") return showExportError(message.message);
@@ -405,7 +428,7 @@
       $("formatsMenu").hidden = true;
       $("formatsToggle").setAttribute("aria-expanded", "false");
       if (phase !== "ready" && phase !== "refreshing") return;
-      for (const name of ["tokens", "check", "connect", "selection", "team"]) $(`view-${name}`).hidden = name !== view;
+      for (const name of ["tokens", "check", "changes", "connect", "selection", "team"]) $(`view-${name}`).hidden = name !== view;
     }
 
     function showExportError(message) {
@@ -432,6 +455,7 @@
       $("tokensBody").hidden = message.count === 0;
       showBoard(message.files["tokens.json"], message.typeCounts);
       showSkippedVariables(message.skipped || []);
+      showChanges(message.changes ?? null, message.baselineSavedAt ?? null);
       showExportDownloads();
       show(view);
       if (wasRefreshing) flash(`변수를 다시 읽었어요 · ${message.count}개`);
@@ -595,6 +619,46 @@
       $("checkGroups").replaceChildren(...groups);
     }
 
+    // changes: null = no saved baseline; [] = nothing changed since it was saved.
+    function showChanges(changes, savedAt) {
+      const labels = { added: ["추가", "good"], changed: ["변경", ""], removed: ["삭제", "bad"] };
+      const count = changes?.length ? String(changes.length) : "";
+      $("changesCount").textContent = count;
+      $("changesTotal").textContent = count;
+      $("changesNone").hidden = changes !== null;
+      $("changesSame").hidden = !(changes && !changes.length);
+      $("changesSince").textContent = savedAt ? `기준: ${new Date(savedAt).toLocaleString("ko-KR")}` : "";
+      const header = changes?.length ? ["", "토큰", "이전", "지금"].map((text) => {
+        const cell = document.createElement("span");
+        cell.className = "muted";
+        cell.textContent = text;
+        return cell;
+      }) : [];
+      $("changesList").replaceChildren(...header, ...(changes || []).flatMap(({ type, token, previous }) => {
+        const [label, tone] = labels[type];
+        const cells = [label, token.name, type === "added" ? "" : formatValue(previous || token), type === "removed" ? "" : formatValue(token)];
+        return cells.map((text, index) => {
+          const cell = document.createElement("span");
+          cell.textContent = index === 3 && text && type === "changed" ? `→ ${text}` : text;
+          if (index === 0) cell.className = tone || "muted";
+          return cell;
+        });
+      }));
+    }
+
+    function formatValue({ type, value }) {
+      return type === "color" && value ? toHex(value) : typeof value === "object" ? JSON.stringify(value) : String(value);
+    }
+
+    function saveBaseline() {
+      if (files) parent.postMessage({ pluginMessage: { type: "save-baseline", tokens: files["tokens.json"] } }, "*");
+    }
+
+    function baselineSaved(message) {
+      if (!message.ok) return flash("기준을 저장하지 못했어요. 파일 편집 권한이 필요해요.");
+      showChanges([], message.savedAt);
+    }
+
     function showExportDownloads() {
       const buttons = Object.keys(files)
         .filter((filename) => filename !== "tokens.json")
@@ -685,11 +749,13 @@
     }
 
     function download(filename) {
+      saveBaseline();
       triggerDownload(new Blob([files[filename]], { type: "text/plain" }), filename);
       flash(`${filename} 다운로드됨`);
     }
 
     function downloadAll() {
+      saveBaseline();
       triggerDownload(new Blob([createZip(Object.entries(files))], { type: "application/zip" }), "figma-token-export.zip");
       flash("figma-token-export.zip 다운로드됨");
     }
@@ -763,6 +829,10 @@
     $("retry").onclick = () => $("refresh").onclick();
     $("downloadAll").onclick = () => downloadAll();
     $("openCheck").onclick = () => show("check");
+    $("saveBaseline").onclick = () => {
+      saveBaseline();
+      flash("지금 토큰을 기준으로 저장했어요");
+    };
     $("downloadTokens").onclick = () => download("tokens.json");
     $("formatsToggle").onclick = () => {
       $("formatsMenu").hidden = !$("formatsMenu").hidden;

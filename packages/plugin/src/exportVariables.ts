@@ -1,4 +1,5 @@
 import {
+  diffTokens,
   normalizeFigmaVariables,
   renderCssVariables,
   renderDtcgJson,
@@ -55,7 +56,8 @@ export function exportVariables(collections: PluginCollection[], variables: Plug
   });
 }
 
-export function createExports(collections: PluginCollection[], variables: PluginVariable[]) {
+// baseline: tokens from the last saved export; null when nothing was saved yet.
+export function createExports(collections: PluginCollection[], variables: PluginVariable[], baseline: DesignToken[] | null = null) {
   const warnings: string[] = [];
   const skipped: SkippedVariable[] = [];
   const tokens = exportVariables(collections, variables, (message) => {
@@ -69,6 +71,7 @@ export function createExports(collections: PluginCollection[], variables: Plugin
     warnings,
     skippedVariables: skippedVariableNames(warnings),
     skipped,
+    changes: baseline ? diffTokens(baseline, tokens) : null,
     files: renderOutputFiles(tokens)
   };
 }
