@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import "dotenv/config";
+import { createRequire } from "node:module";
 import { Command, InvalidArgumentError } from "commander";
 import { runDefaultWorkflow } from "./runDefaultWorkflow.js";
 import { sync } from "./sync.js";
 
+// package.json is the single version source; the release workflow bumps only that file.
+const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
 const syncFormats = ["tokens-json", "theme-ts", "variables-css", "tokens-scss", "tailwind-css", "tokens-dtcg-json"];
 
 function parseSyncFormat(value: string): string {
@@ -14,7 +17,7 @@ function parseSyncFormat(value: string): string {
 const program = new Command()
   .name("figma-token")
   .description("Plugin tokens.json을 프로젝트 토큰 파일로 적용합니다.")
-  .version("0.1.3")
+  .version(version)
   .enablePositionalOptions()
   .argument("[input]", "Figma Plugin에서 다운로드한 tokens.json (default: ./tokens.json)")
   .option("--out <directory>", "출력 폴더 (default: ./figma-token-output)")

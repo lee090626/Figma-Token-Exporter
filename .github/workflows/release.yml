@@ -1,0 +1,65 @@
+name: Release
+
+# One click: Actions → Release → Run workflow. Bumps versions on main, then starts ci.yml,
+# which tests and creates the npm publish and GitHub releases for the new versions.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 배포할 대상
+        type: choice
+        options: [plugin, cli, both]
+        default: plugin
+      bump:
+        description: 올릴 버전
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v6
+      - name: Bump versions
+        env:
+          TARGET: ${{ inputs.target }}
+          BUMP: ${{ inputs.bump }}
+        run: |
+          dirs=""
+          [ "$TARGET" != "cli" ] && dirs="$dirs packages/plugin"
+          [ "$TARGET" != "plugin" ] && dirs="$dirs packages/cli"
+          summary=""
+          for dir in $dirs; do
+            next="$(node -e '
+              const fs = require("fs");
+              const file = process.argv[1] + "/package.json";
+              const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
+              const [major, minor, patch] = pkg.version.split(".").map(Number);
+              pkg.version = { major: `${major + 1}.0.0`, minor: `${major}.${minor + 1}.0`, patch: `${major}.${minor}.${patch + 1}` }[process.argv[2]];
+              fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
+              console.log(pkg.name + "@" + pkg.version);
+            ' "$dir" "$BUMP")"
+            summary="$summary $next"
+          done
+          echo "SUMMARY=${summary# }" >> "$GITHUB_ENV"
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(release): $SUMMARY"
+          git push origin HEAD:main
+      # Pushes made with GITHUB_TOKEN do not start workflows, so start CI explicitly.
+      - name: Start CI on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref main
