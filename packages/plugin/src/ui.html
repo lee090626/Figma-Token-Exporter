@@ -166,6 +166,7 @@
   <nav class="nav" aria-label="플러그인 메뉴">
     <div class="brand hide-sm"><span class="logo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4L1.5 8 5 12M11 4l3.5 4-3.5 4"/></svg></span>Token Exporter</div>
     <button type="button" data-view="tokens" aria-current="page"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="2"/><rect x="9" y="2" width="5" height="5" rx="2"/><rect x="2" y="9" width="5" height="5" rx="2"/><rect x="9" y="9" width="5" height="5" rx="2"/></svg>Tokens<span id="navCount" class="end mono">–</span></button>
+    <button type="button" data-view="check"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8l6.5 11.7H1.5z"/><path d="M8 6.5v3M8 11.6v.1"/></svg>점검<span id="checkCount" class="end mono"></span></button>
     <button type="button" data-view="connect"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 014.5 9l1-1"/></svg>Connect<span class="end"><span id="doneCount" class="mono">1/3</span><span id="navBlob" class="blob" aria-hidden="true"></span></span></button>
     <button type="button" data-view="selection" id="navSelection" hidden><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 5V2.5h2.5M11.5 2.5H14V5M14 11v2.5h-2.5M4.5 13.5H2V11"/><rect x="5" y="5" width="6" height="6" rx="2"/></svg>선택 분석<span id="selectionCount" class="end mono"></span></button>
     <div class="nav-group hide-sm">Team</div>
@@ -215,8 +216,7 @@
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--warn)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 1px"><path d="M8 1.8l6.5 11.7H1.5z"/><path d="M8 6.5v3M8 11.6v.1"/></svg>
           <div style="min-width: 0">
             <strong id="skippedTitle"></strong>
-            <p class="muted" style="margin-top: 2px">타입을 알 수 없는 숫자(<code>spacing/…</code>처럼 타입으로 시작하지 않음), 문자열·불리언, 풀 수 없는 참조는 빠져요. Figma에서 고치고 새로고침하면 포함돼요.</p>
-            <div id="skipped" class="pills mono"></div>
+            <p class="muted" style="margin-top: 2px">이유와 고치는 방법은 <button id="openCheck" class="link" type="button" style="height: auto; padding: 0">점검</button>에서 볼 수 있어요.</p>
           </div>
         </div>
       </div>
@@ -294,6 +294,19 @@
     </section>
 
     <!-- 3. Selection -->
+    <section id="view-check" class="view" hidden>
+      <header class="topbar"><h1>점검</h1><span id="checkTotal" class="mono muted"></span></header>
+      <div class="body">
+        <div id="checkEmpty" class="state" hidden>
+          <span class="blob happy" style="width: 56px; height: 50px" aria-hidden="true"></span>
+          <strong>빠진 변수가 없어요</strong>
+          <p>모든 Variables가 토큰으로 내보내져요.</p>
+        </div>
+        <p id="checkIntro" class="muted">아래 변수는 토큰에서 빠졌어요. Figma에서 고치고 새로고침하면 포함돼요.</p>
+        <div id="checkGroups" style="display: flex; flex-direction: column; gap: 10px"></div>
+      </div>
+    </section>
+
     <section id="view-selection" class="view" hidden>
       <header class="topbar"><h1>선택 분석</h1></header>
       <div class="body">
@@ -381,7 +394,7 @@
       $("formatsMenu").hidden = true;
       $("formatsToggle").setAttribute("aria-expanded", "false");
       if (phase !== "ready" && phase !== "refreshing") return;
-      for (const name of ["tokens", "connect", "selection", "team"]) $(`view-${name}`).hidden = name !== view;
+      for (const name of ["tokens", "check", "connect", "selection", "team"]) $(`view-${name}`).hidden = name !== view;
     }
 
     function showExportError(message) {
@@ -407,7 +420,7 @@
       $("empty").hidden = message.count > 0;
       $("tokensBody").hidden = message.count === 0;
       showBoard(message.files["tokens.json"], message.typeCounts);
-      showSkippedVariables(message.skippedVariables || []);
+      showSkippedVariables(message.skipped || []);
       showExportDownloads();
       show(view);
       if (wasRefreshing) flash(`변수를 다시 읽었어요 · ${message.count}개`);
@@ -528,14 +541,47 @@
       return a < 1 ? `#${hex} ${Math.round(a * 100)}%` : `#${hex}`;
     }
 
-    function showSkippedVariables(skippedVariables) {
-      $("warning").hidden = !skippedVariables.length;
-      $("skippedTitle").textContent = `변수 ${skippedVariables.length}개가 빠졌어요`;
-      $("skipped").replaceChildren(...skippedVariables.map((name) => {
-        const item = document.createElement("span");
-        item.textContent = name;
-        return item;
-      }));
+    // Reason ids come from exportVariables.ts SkipReason.
+    const skipReasons = {
+      "unclassified-float": ["타입을 알 수 없는 숫자", "이름을 spacing/, radius/, size/, fontSize/, opacity/, borderWidth/처럼 타입으로 시작하게 바꾸세요."],
+      "unsupported-type": ["문자열·불리언 변수", "토큰으로 내보내지 않는 타입이에요. 필요 없다면 그대로 두셔도 돼요."],
+      "alias-target-missing": ["참조 대상을 찾을 수 없음", "참조하던 변수가 지워졌거나 이 파일에 없어요. 참조를 다시 연결하세요."],
+      "alias-cycle": ["순환 참조", "서로를 참조하는 변수 중 하나를 직접 값으로 바꾸세요."],
+      "alias-type-mismatch": ["타입이 다른 참조", "같은 타입의 변수를 참조하도록 바꾸세요."],
+      "alias-mode-mismatch": ["모드가 맞지 않는 참조", "참조 대상 컬렉션에 같은 이름의 모드가 있는지 확인하세요."]
+    };
+
+    function showSkippedVariables(skipped) {
+      $("warning").hidden = !skipped.length;
+      $("skippedTitle").textContent = `변수 ${skipped.length}개가 빠졌어요`;
+      $("checkCount").textContent = skipped.length ? String(skipped.length) : "";
+      $("checkTotal").textContent = skipped.length ? String(skipped.length) : "";
+      $("checkEmpty").hidden = skipped.length > 0;
+      $("checkIntro").hidden = !skipped.length;
+      const groups = Object.entries(skipReasons).map(([reason, [title, fix]]) => {
+        const items = skipped.filter((item) => item.reason === reason);
+        if (!items.length) return null;
+        const box = document.createElement("div");
+        const heading = document.createElement("strong");
+        const hint = document.createElement("p");
+        const names = document.createElement("div");
+        box.className = "warning";
+        box.style.flexDirection = "column";
+        box.style.gap = "2px";
+        heading.textContent = `${title} · ${items.length}`;
+        hint.className = "muted";
+        hint.textContent = fix;
+        names.className = "pills mono";
+        names.append(...items.map(({ name, collection }) => {
+          const item = document.createElement("span");
+          item.textContent = name;
+          if (collection) item.title = `컬렉션: ${collection}`;
+          return item;
+        }));
+        box.append(heading, hint, names);
+        return box;
+      }).filter(Boolean);
+      $("checkGroups").replaceChildren(...groups);
     }
 
     function showExportDownloads() {
@@ -690,6 +736,7 @@
     };
     $("retry").onclick = () => $("refresh").onclick();
     $("downloadAll").onclick = () => downloadAll();
+    $("openCheck").onclick = () => show("check");
     $("downloadTokens").onclick = () => download("tokens.json");
     $("formatsToggle").onclick = () => {
       $("formatsMenu").hidden = !$("formatsMenu").hidden;

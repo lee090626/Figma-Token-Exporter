@@ -93,6 +93,7 @@ it("warns when FLOAT variables cannot be classified by name", () => {
   expect(result.count).toBe(0);
   expect(result.warnings).toEqual(["unclassified FLOAT variable skipped: ExtraLarge - 28 (collection: Unknown)"]);
   expect(result.skippedVariables).toEqual(["ExtraLarge - 28"]);
+  expect(result.skipped).toEqual([{ name: "ExtraLarge - 28", reason: "unclassified-float", collection: "Unknown" }]);
   expect(warn).toHaveBeenCalledWith("unclassified FLOAT variable skipped: ExtraLarge - 28 (collection: Unknown)");
   warn.mockRestore();
 });

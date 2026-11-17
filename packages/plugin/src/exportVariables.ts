@@ -34,30 +34,41 @@ const aliasSkippedMessage = (name: string, reason: "alias-target-missing" | "ali
   const suffix = collection ? ` (collection: ${collection})` : "";
   return `alias ${reason.replace(/^alias-/, "").replace(/-/g, " ")} skipped: ${name}${suffix}`;
 };
+export type SkipReason = "unclassified-float" | "unsupported-type" | "alias-target-missing" | "alias-cycle" | "alias-type-mismatch" | "alias-mode-mismatch";
+export interface SkippedVariable { name: string; reason: SkipReason; collection?: string }
+
 const tokenTypes: TokenType[] = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
 
-export function exportVariables(collections: PluginCollection[], variables: PluginVariable[], onWarning = console.warn): DesignToken[] {
+export function exportVariables(collections: PluginCollection[], variables: PluginVariable[], onWarning = console.warn, onSkip?: (skipped: SkippedVariable) => void): DesignToken[] {
   return normalizeFigmaVariables({
     variableCollections: Object.fromEntries(collections.map((collection) => [collection.id, collection])),
     variables: Object.fromEntries(variables.map((variable) => [variable.id, variable]))
   }, {
-    onUnsupported: (name, reason, collection) => onWarning(skippedMessage(name, reason, collection)),
-    onAliasWarning: (name, reason, collection) => onWarning(aliasSkippedMessage(name, reason, collection))
+    onUnsupported: (name, reason, collection) => {
+      onSkip?.({ name, reason, collection });
+      onWarning(skippedMessage(name, reason, collection));
+    },
+    onAliasWarning: (name, reason, collection) => {
+      onSkip?.({ name, reason, collection });
+      onWarning(aliasSkippedMessage(name, reason, collection));
+    }
   });
 }
 
 export function createExports(collections: PluginCollection[], variables: PluginVariable[]) {
   const warnings: string[] = [];
+  const skipped: SkippedVariable[] = [];
   const tokens = exportVariables(collections, variables, (message) => {
     warnings.push(message);
     console.warn(message);
-  });
+  }, (item) => skipped.push(item));
 
   return {
     count: tokens.length,
     typeCounts: countTokensByType(tokens),
     warnings,
     skippedVariables: skippedVariableNames(warnings),
+    skipped,
     files: renderOutputFiles(tokens)
   };
 }
