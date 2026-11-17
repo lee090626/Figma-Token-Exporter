@@ -116,7 +116,7 @@ function collectionFor(variable: RecordValue, collections: RecordValue): RecordV
     : undefined;
 }
 
-function resolveValue(variables: RecordValue, variable: RecordValue, modeId: string, onWarning?: (name: string, reason: Exclude<AliasWarningReason, "alias-type-mismatch">) => void, seen = new Set<unknown>()): unknown {
+function resolveValue(variables: RecordValue, collections: RecordValue, variable: RecordValue, modeId: string, onWarning?: (name: string, reason: Exclude<AliasWarningReason, "alias-type-mismatch">) => void, seen = new Set<unknown>()): unknown {
   const values = isRecord(variable.valuesByMode) ? variable.valuesByMode : {};
   const name = typeof variable.name === "string" ? variable.name : modeId;
   if (!(modeId in values)) {
@@ -135,7 +135,11 @@ function resolveValue(variables: RecordValue, variable: RecordValue, modeId: str
     onWarning?.(name, "alias-target-missing");
     return undefined;
   }
-  return resolveValue(variables, target, modeId, onWarning, seen);
+  // Figma resolves an alias into another collection with that collection's own mode (its default unless set explicitly).
+  const targetModeId = target.variableCollectionId === variable.variableCollectionId
+    ? modeId
+    : pickModeId(collectionFor(target, collections), isRecord(target.valuesByMode) ? target.valuesByMode : {});
+  return resolveValue(variables, collections, target, targetModeId ?? modeId, onWarning, seen);
 }
 
 function normalizeValue(value: unknown, type: TokenType): number | ColorValue | undefined {
@@ -172,7 +176,7 @@ function normalizeVariable(variable: RecordValue, variables: RecordValue, collec
 
   const warnAlias = (name: string, reason: AliasWarningReason) => options.onAliasWarning?.(name, reason, collectionLabel);
   const selectedValue = values[modeId];
-  const rawValue = resolveValue(variables, variable, modeId, warnAlias);
+  const rawValue = resolveValue(variables, collections, variable, modeId, warnAlias);
   const value = normalizeValue(rawValue, type);
   if (value === undefined) {
     if (isRecord(selectedValue) && selectedValue.type === "VARIABLE_ALIAS" && rawValue !== undefined) {

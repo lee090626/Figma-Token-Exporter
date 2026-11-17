@@ -4,29 +4,46 @@ import { createComponentManifest, createFrameManifest, frameManifestFiles, varia
 import { createExports } from "./exportVariables.js";
 
 const WAITLIST_URL = "https://github.com/lee090626/Figma-Token-Exporter/issues/new?template=team-waitlist.yml";
-const UI_WIDTH = 420;
-const MIN_UI_HEIGHT = 260;
-const MAX_UI_HEIGHT = 640;
+const UI_SIZE_KEY = "uiSize";
+const PROGRESS_KEY = "connectProgress";
 
-figma.showUI(__html__, { width: UI_WIDTH, height: MIN_UI_HEIGHT, themeColors: true });
+figma.showUI(__html__, { width: 880, height: 640, themeColors: true });
+figma.clientStorage.getAsync(UI_SIZE_KEY).then((size) => {
+  if (typeof size?.width !== "number" || typeof size?.height !== "number") return;
+  figma.ui.resize(clamp(size.width, 480, 1600), clamp(size.height, 320, 1200));
+}).catch(() => undefined);
 
 figma.ui.onmessage = (message) => {
-  if (message.type === "resize") {
-    figma.ui.resize(UI_WIDTH, clampUiHeight(message.height));
+  if (message.type === "user-resize") {
+    const size = { width: clamp(message.width, 480, 1600), height: clamp(message.height, 320, 1200) };
+    figma.ui.resize(size.width, size.height);
+    if (message.done) figma.clientStorage.setAsync(UI_SIZE_KEY, size).catch(() => undefined);
     return;
   }
   if (message.type === "open-waitlist") {
     figma.openExternal(WAITLIST_URL);
     return;
   }
+  if (message.type === "save-progress") {
+    figma.clientStorage.setAsync(PROGRESS_KEY, { step2: Boolean(message.progress?.step2), step3: Boolean(message.progress?.step3) }).catch(() => undefined);
+    return;
+  }
+  if (message.type === "refresh") {
+    sendVariables().catch(sendExportError);
+    sendSelectionManifests();
+    return;
+  }
   if (message.type !== "ui-ready") return;
 
+  figma.clientStorage.getAsync(PROGRESS_KEY)
+    .then((progress) => figma.ui.postMessage({ type: "progress", progress }))
+    .catch(() => undefined);
   sendVariables().catch(sendExportError);
   sendSelectionManifests();
 };
 
-function clampUiHeight(height: number) {
-  return Math.max(MIN_UI_HEIGHT, Math.min(MAX_UI_HEIGHT, Math.round(height)));
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, Math.round(value)));
 }
 
 function sendExportError(error: unknown) {
