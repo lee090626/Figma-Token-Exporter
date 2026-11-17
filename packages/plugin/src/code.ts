@@ -24,7 +24,7 @@ type UiMessage =
   | { type: "user-resize"; width: number; height: number; done: boolean }
   | { type: "save-progress"; progress?: { step2?: boolean; step3?: boolean } }
   | { type: "open-waitlist" }
-  | { type: "save-baseline"; tokens: string };
+  | { type: "save-baseline"; tokens: string; explicit?: boolean };
 
 // Plugin → UI: "manifest-none" means nothing analyzable is selected. "selection-changed" asks the UI to request a fresh selection analysis (it debounces).
 figma.on("selectionchange", () => figma.ui.postMessage({ type: "selection-changed" }));
@@ -50,7 +50,7 @@ figma.ui.onmessage = (message: UiMessage) => {
     return;
   }
   if (message.type === "save-baseline") {
-    figma.ui.postMessage({ type: "baseline-saved", ...saveBaseline(message.tokens) });
+    figma.ui.postMessage({ type: "baseline-saved", explicit: Boolean(message.explicit), ...saveBaseline(message.tokens) });
     return;
   }
   if (message.type === "read-selection") {
