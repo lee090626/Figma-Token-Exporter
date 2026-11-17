@@ -1,114 +1,338 @@
 <!doctype html>
-<html>
+<html lang="ko">
 <head>
+  <meta charset="utf-8">
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 16px; font: 12px/1.45 Inter, sans-serif; color: var(--figma-color-text); background: var(--figma-color-bg); }
+    :root {
+      --bg: #faf6ee; --panel: #f3ede2; --card: #ffffff; --line: #e8e0d2;
+      --text: #1a1814; --text-2: #6b6458; --btn: #1a1814; --btn-text: #faf6ee; --nav-active: #e8e0d2;
+      --green: #20b35e; --green-text: #137a3e; --warn: #8a6200; --warn-line: #ebc75a; --warn-bg: #fff5d6;
+      --danger: #c42a20; --danger-soft: #fdece8; --soon-text: #7a5600; --soon-bg: #ffedb0; --gray-blob: #cfc8bb;
+      --toast-bg: #1a1814; --toast-text: #faf6ee;
+      --blob-shade: inset 0 2px 2px rgba(255, 255, 255, 0.45), inset 0 -2px 3px rgba(0, 0, 0, 0.16), 0 1px 2px rgba(26, 24, 20, 0.2);
+    }
+    html.figma-dark {
+      --bg: #17150f; --panel: #1e1b15; --card: #24211a; --line: #34302a;
+      --text: #f3eee4; --text-2: #a39c8e; --btn: #f3eee4; --btn-text: #17150f; --nav-active: #34302a;
+      --green: #3fd47f; --green-text: #4fdb8c; --warn: #ffc21a; --warn-line: rgba(255, 194, 26, 0.5); --warn-bg: rgba(255, 194, 26, 0.09);
+      --danger: #ff8a7a; --danger-soft: rgba(255, 107, 90, 0.12); --soon-text: #ffd45c; --soon-bg: rgba(255, 194, 26, 0.14); --gray-blob: #b9b1a3;
+      --toast-bg: #f3eee4; --toast-text: #17150f;
+    }
+    * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: rgba(163, 156, 142, 0.55) transparent; }
+    html, body { height: 100%; }
+    body { position: relative; display: flex; margin: 0; overflow: hidden; font: 12px/1.5 Inter, system-ui, sans-serif; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
     p { margin: 0; }
-    #result { display: grid; gap: 16px; }
-    .intro { margin-bottom: 20px; }
-    h1 { margin: 0 0 4px; font-size: 16px; line-height: 1.3; }
-    .section-title { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 600; }
-    .muted { color: var(--figma-color-text-secondary); }
-    .summary { padding-bottom: 14px; border-bottom: 1px solid var(--figma-color-border); }
-    .summary-count { font-size: 16px; font-weight: 600; }
-    .counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
-    .counts li { padding: 2px 6px; border-radius: 3px; color: var(--figma-color-text-secondary); background: var(--figma-color-bg-secondary); }
-    .actions { display: grid; gap: 8px; }
-    button { width: 100%; min-height: 32px; padding: 6px 12px; border: 1px solid var(--figma-color-border); border-radius: 5px; color: var(--figma-color-text); background: var(--figma-color-bg); font: inherit; font-weight: 500; text-align: center; cursor: pointer; }
-    button:hover { background: var(--figma-color-bg-hover); }
-    button.primary { border-color: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand); background: var(--figma-color-bg-brand); font-weight: 600; }
-    button.primary:hover { background: var(--figma-color-bg-brand-hover); }
-    button:focus-visible, summary:focus-visible { outline: 2px solid var(--figma-color-border-selected); outline-offset: 2px; }
-    .component { padding: 12px; border-radius: 6px; background: var(--figma-color-bg-secondary); }
-    .component p { margin-bottom: 8px; }
-    .cli { padding: 12px; border-radius: 5px; background: var(--figma-color-bg-secondary); }
-    .cli p + p { margin-top: 8px; }
-    pre { margin: 10px 0 0; padding: 7px 8px; border-radius: 3px; background: var(--figma-color-bg); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
-    details { padding-top: 2px; }
-    summary { cursor: pointer; font-weight: 600; }
-    .individual-actions { display: grid; gap: 6px; margin-top: 10px; }
-    #warning { margin-top: 10px; color: var(--figma-color-text-danger); }
-    #warning[hidden] { display: none; }
-    .steps { display: grid; gap: 4px; margin: 0 0 10px; padding: 0; list-style: none; }
-    .steps li::before { content: "☐ "; }
-    .steps li.done::before { content: "✓ "; color: var(--figma-color-text-success); }
-    .steps li.done { color: var(--figma-color-text-secondary); }
+    code, .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+    svg { flex: none; }
+    [hidden] { display: none !important; }
+    .muted { color: var(--text-2); }
+
+    button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); background: var(--card); font: 500 12px Inter, system-ui, sans-serif; white-space: nowrap; cursor: pointer; }
+    button:focus-visible, summary:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    button.primary { border-color: transparent; color: var(--btn-text); background: var(--btn); font-weight: 600; }
+    button.mono { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 11px; }
+    button.link { height: 26px; padding: 0 10px; border: 0; color: var(--text-2); background: transparent; font-size: 11px; text-decoration: underline; }
+
+    /* 말랑이 */
+    .blob { position: relative; display: block; flex: none; border-radius: 38%; background: var(--gray-blob); box-shadow: var(--blob-shade); }
+    .blob::before, .blob::after { content: ""; position: absolute; top: 46%; width: 13%; height: 13%; border-radius: 50%; background: var(--eye, #1a1814); }
+    .blob::before { left: 27%; }
+    .blob::after { left: 58%; }
+    .blob.sleepy::before, .blob.sleepy::after { height: 0; border-top: 2px solid #1a1814; border-radius: 0; background: none; top: 44%; width: 16%; }
+    .blob.happy::before, .blob.happy::after { top: 38%; width: 20%; height: 16%; border-top: 1.6px solid #1a1814; border-radius: 50% 50% 0 0; background: none; }
+    .blob.surprised::before, .blob.surprised::after { top: 32%; width: 20%; height: 22%; box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.7); }
+    .blob.surprised::before { left: 24%; }
+    .blob.surprised::after { left: 56%; }
+    @keyframes mal-hop { 0% { transform: translateY(0) scale(1, 1); } 35% { transform: translateY(-6px) scale(.94, 1.06); } 70% { transform: translateY(0) scale(1.06, .94); } 100% { transform: none; } }
+    @keyframes mal-pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .mal-hop { animation: mal-hop .36s ease-out 1 both; }
+    .mal-pop { animation: mal-pop .24s ease-out 1 both; }
+    @media (prefers-reduced-motion: reduce) { .mal-hop, .mal-pop { animation: none; } }
+
+    /* Sidebar */
+    .nav { display: flex; flex: none; flex-direction: column; gap: 3px; width: 206px; padding: 14px 10px; border-right: 1px solid var(--line); background: var(--panel); }
+    .brand { display: flex; align-items: center; gap: 8px; padding: 2px 8px 14px; font-size: 13px; font-weight: 700; letter-spacing: -0.02em; }
+    .logo { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; color: var(--btn-text); background: var(--btn); }
+    .nav button { justify-content: flex-start; gap: 9px; width: 100%; height: 32px; border: 0; color: var(--text-2); background: transparent; text-align: left; }
+    .nav button[aria-current="page"] { color: var(--text); background: var(--nav-active); }
+    .nav .end { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--text-2); }
+    .nav .label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nav-group { padding: 14px 12px 4px; color: var(--text-2); font-size: 11px; font-weight: 600; }
+    .soon { flex: none; margin-left: auto; padding: 0 6px; border-radius: 999px; color: var(--soon-text); background: var(--soon-bg); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+    .nav-foot { margin-top: auto; padding: 8px 12px; color: var(--text-2); font-size: 11px; }
+    #doneCount.all { color: var(--green-text); }
+    #navBlob { width: 16px; height: 15px; }
+    #navBlob.all { background: var(--green); }
+
+    /* Main */
+    main { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+    .view { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+    .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 52px; padding: 10px 20px; border-bottom: 1px solid var(--line); }
+    .topbar h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+    .spacer { flex: 1; }
+    .body { display: flex; flex: 1; flex-direction: column; gap: 12px; min-height: 0; padding: 16px 20px 24px; overflow: auto; }
+    .state { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; color: var(--text-2); }
+    .state strong { color: var(--text); font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+    .loading-blobs { display: flex; align-items: flex-end; gap: 8px; height: 40px; }
+    .loading-blobs .blob { width: 26px; height: 24px; }
+    .error-box { padding: 10px 16px; border: 1px solid var(--danger); border-radius: 18px; color: var(--danger); background: var(--danger-soft); font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+
+    /* Tokens */
+    .formats { position: relative; }
+    .menu { position: absolute; top: 36px; right: 0; z-index: 4; width: 200px; padding: 6px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: 0 10px 28px rgba(26, 24, 20, 0.18); }
+    .menu p { padding: 4px 8px; color: var(--text-2); font-size: 11px; }
+    .menu button { justify-content: flex-start; width: 100%; border: 0; background: transparent; }
+    .board { display: grid; flex: 1; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); align-content: start; align-items: stretch; gap: 16px 8px; min-height: 120px; padding: 12px; overflow: auto; border: 1px solid var(--line); border-radius: 18px; }
+    .column { min-width: 0; }
+    .column-head { position: sticky; top: -12px; z-index: 1; background: var(--bg); display: flex; align-items: center; gap: 6px; padding: 12px 2px 8px; margin: -12px 0 8px; border-bottom: 1px solid var(--line); font-weight: 600; }
+    .column-head .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+    .column-body { display: grid; gap: 5px; }
+    .token { justify-content: flex-start; gap: 6px; width: 100%; min-width: 0; height: 36px; padding: 0 8px; overflow: hidden; border-radius: 14px; text-align: left; }
+    .token.copied { border-color: var(--green); }
+    .token .blob { width: 20px; height: 19px; }
+    .token .radius { flex: none; width: 18px; height: 18px; background: var(--gray-blob); }
+    .token .glyph { flex: none; display: grid; place-items: center; width: 20px; color: var(--text-2); font: 600 9px "JetBrains Mono", ui-monospace, Menlo, monospace; }
+    .token .label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .token .value { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font: 11px "JetBrains Mono", ui-monospace, Menlo, monospace; }
+    .token.copied .value { color: var(--green-text); }
+    .warning { display: flex; gap: 10px; padding: 10px 16px; border: 1px solid var(--warn-line); border-radius: 18px; background: var(--warn-bg); }
+    .warning strong { font-weight: 700; }
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .pills span { padding: 1px 8px; border-radius: 999px; background: var(--card); }
+
+    /* Connect */
+    .progress { flex: 0 1 140px; min-width: 80px; height: 6px; overflow: hidden; border-radius: 999px; background: var(--line); }
+    .progress div { height: 100%; border-radius: 999px; background: var(--green); transition: width .3s; }
+    .step { display: flex; gap: 12px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--card); }
+    .step.doing { border-color: var(--warn-line); }
+    .step-body { display: flex; flex: 1; flex-direction: column; gap: 8px; min-width: 0; }
+    .step-title { font-weight: 600; }
+    .step.done .step-title { color: var(--text-2); }
+    .ring { flex: none; width: 18px; height: 18px; margin-top: 1px; border: 1.5px solid var(--text-2); border-radius: 50%; }
+    .step.doing .ring { border: 1.5px dashed var(--warn); }
+    .step.done .ring { border: 0; background: var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M4 7.2l2 2 4-4.4' fill='none' stroke='white' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px no-repeat; animation: mal-pop .24s ease-out 1 both; }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .command { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 200px; padding: 4px 4px 4px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+    .command code { flex: 1; min-width: 0; white-space: nowrap; }
+    .command button { height: 24px; padding: 0 10px; font-size: 11px; }
+    .step.done .when-doing, .step:not(.done) .when-done { display: none; }
+    .example { margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+    .example figcaption, .example footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; font-size: 11px; }
+    .example figcaption { border-bottom: 1px solid var(--line); }
+    .example footer { border-top: 1px solid var(--line); color: var(--text-2); }
+    .tag { margin-left: auto; padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--text-2); font-size: 11px; }
+    .diff { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: 2px 10px; padding: 6px 12px; }
+    .bad { color: var(--danger); }
+    .good { color: var(--green-text); }
+    #workflowStatus.fail { color: var(--danger); }
+    .next { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px dashed var(--line); border-radius: 18px; color: var(--text-2); }
+    .next .mono { padding: 0 8px; border-radius: 999px; color: var(--text); background: var(--panel); font-weight: 600; }
+    .celebrate { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border: 1px solid var(--green); border-radius: 18px; background: var(--card); }
+    .celebrate .blob { width: 40px; height: 36px; background: var(--green); animation-delay: .15s; }
+    .celebrate strong { font-size: 14px; font-weight: 700; }
+    details.help { padding: 10px 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--card); }
+    details.help > summary { color: var(--text-2); font-weight: 600; cursor: pointer; }
+    details.help details { padding: 6px 0; border-top: 1px solid var(--line); }
+    details.help details:first-of-type { margin-top: 8px; }
+    details.help details summary { font-weight: 500; cursor: pointer; }
+    details.help details p { margin-top: 6px; color: var(--text-2); }
+
+    /* Selection & Team */
+    .downloads { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
+    .downloads button { justify-content: flex-start; height: 42px; border-radius: 14px; }
+    .team { align-items: center; justify-content: center; gap: 18px; }
+    .team .example { width: 100%; max-width: 440px; border-style: dashed; border-color: var(--text-2); background: var(--card); }
+    .team .example figcaption { background: var(--panel); padding: 8px 14px; }
+    .team .lines { display: grid; gap: 6px; padding: 10px 14px; }
+    .team-copy { max-width: 440px; text-align: center; }
+    .team-copy strong { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+
+    .toast { position: absolute; left: 50%; bottom: 16px; z-index: 6; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; color: var(--toast-text); background: var(--toast-bg); font-weight: 500; box-shadow: 0 8px 22px rgba(26, 24, 20, 0.25); transform: translateX(-50%); white-space: nowrap; }
+    .toast .blob { width: 18px; height: 17px; background: var(--green); animation-delay: .12s; }
+    .resize-handle { position: fixed; right: 0; bottom: 0; z-index: 7; width: 14px; height: 14px; color: var(--text-2); cursor: nwse-resize; touch-action: none; }
+
+    @media (max-width: 600px) {
+      body { flex-direction: column; }
+      .nav { flex-direction: row; align-items: center; gap: 4px; width: auto; padding: 8px 10px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .nav button { flex: none; width: auto; }
+      .hide-sm { display: none; }
+    }
   </style>
 </head>
 <body>
-  <header class="intro">
-    <h1>Design token export</h1>
-    <p class="muted">Figma Variables를 프로젝트에서 쓸 수 있는 파일로 내보냅니다.</p>
-  </header>
-  <p id="status">현재 파일의 Variables를 읽고 있습니다.</p>
+  <nav class="nav" aria-label="플러그인 메뉴">
+    <div class="brand hide-sm"><span class="logo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4L1.5 8 5 12M11 4l3.5 4-3.5 4"/></svg></span>Token Exporter</div>
+    <button type="button" data-view="tokens" aria-current="page"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="2"/><rect x="9" y="2" width="5" height="5" rx="2"/><rect x="2" y="9" width="5" height="5" rx="2"/><rect x="9" y="9" width="5" height="5" rx="2"/></svg>Tokens<span id="navCount" class="end mono">–</span></button>
+    <button type="button" data-view="connect"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 014.5 9l1-1"/></svg>Connect<span class="end"><span id="doneCount" class="mono">1/3</span><span id="navBlob" class="blob" aria-hidden="true"></span></span></button>
+    <button type="button" data-view="selection" id="navSelection" hidden><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 5V2.5h2.5M11.5 2.5H14V5M14 11v2.5h-2.5M4.5 13.5H2V11"/><rect x="5" y="5" width="6" height="6" rx="2"/></svg>선택 분석<span id="selectionCount" class="end mono"></span></button>
+    <div class="nav-group hide-sm">Team</div>
+    <button type="button" data-view="team"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><path d="M1.5 13.5c.6-2.3 2.3-3.5 4.5-3.5s3.9 1.2 4.5 3.5M11 3.8a2.3 2.3 0 010 4.4M12.5 10.3c1 .5 1.7 1.6 2 3.2"/></svg><span class="label">PR 코멘트 · 알림</span><span class="soon">SOON</span></button>
+    <p class="nav-foot hide-sm">지금은 모두 무료</p>
+  </nav>
 
-  <main id="result" hidden>
-    <section class="summary" aria-labelledby="summary-title">
-      <strong id="summary-title" class="section-title">Export 결과</strong>
-      <p id="tokenCount" class="summary-count"></p>
-      <ul id="counts" class="counts"></ul>
-      <div id="warning" hidden>
-        <p id="skippedStatus"></p>
-        <ul id="skipped" style="margin: 0; padding-left: 18px"></ul>
+  <main>
+    <div id="loading" class="state" role="status">
+      <div class="loading-blobs" aria-hidden="true">
+        <span class="blob mal-hop" style="background: #ff6b5a"></span>
+        <span class="blob mal-hop" style="background: #ffc21a; animation-delay: 140ms"></span>
+        <span class="blob mal-hop" style="background: #6ba8ff; animation-delay: 280ms"></span>
+      </div>
+      현재 파일의 Variables를 읽고 있습니다.
+    </div>
+
+    <div id="error" class="state" role="alert" hidden>
+      <span class="blob surprised mal-pop" style="width: 48px; height: 44px" aria-hidden="true"></span>
+      <p id="errorText" class="error-box"></p>
+      <button id="retry" type="button">다시 읽기</button>
+    </div>
+
+    <!-- 1. Tokens -->
+    <section id="view-tokens" class="view" hidden>
+      <header class="topbar">
+        <h1>Tokens</h1>
+        <span id="tokenCount" class="mono muted"></span>
+        <span class="spacer"></span>
+        <button id="refresh" type="button" title="Figma 변수 다시 읽기"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 11-1.6-3.9M13.5 2.5v3h-3"/></svg>새로고침</button>
+        <button id="downloadTokens" class="mono" type="button">tokens.json</button>
+        <div class="formats">
+          <button id="formatsToggle" type="button" aria-expanded="false" aria-controls="formatsMenu">6 formats ▾</button>
+          <div id="formatsMenu" class="menu" hidden><p>파일별 다운로드</p><div id="individualDownloads"></div></div>
+        </div>
+        <button id="downloadAll" class="primary" type="button"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/></svg>전체 다운로드 .zip</button>
+      </header>
+      <div id="empty" class="state" hidden>
+        <span class="blob sleepy" style="width: 56px; height: 50px" aria-hidden="true"></span>
+        <strong>이 파일에는 아직 Variables가 없어요</strong>
+        <p>Variables를 하나 만들고 <b>새로고침</b>을 누르면 바로 토큰으로 보여드려요.</p>
+        <p style="font-size: 11px">왼쪽 레일 <b>변수</b> → <b>+ 새 변수</b> → 이름을 <code>color/primary</code>처럼</p>
+      </div>
+      <div id="tokensBody" class="body">
+        <div id="board" class="board" aria-label="토큰 보드"></div>
+        <div id="warning" class="warning" role="note" hidden>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--warn)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 1px"><path d="M8 1.8l6.5 11.7H1.5z"/><path d="M8 6.5v3M8 11.6v.1"/></svg>
+          <div style="min-width: 0">
+            <strong id="skippedTitle"></strong>
+            <p class="muted" style="margin-top: 2px">타입을 알 수 없는 숫자(<code>spacing/…</code>처럼 타입으로 시작하지 않음), 문자열·불리언, 풀 수 없는 참조는 빠져요. Figma에서 고치고 새로고침하면 포함돼요.</p>
+            <div id="skipped" class="pills mono"></div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section aria-labelledby="actions-title">
-      <strong id="actions-title" class="section-title">다운로드</strong>
-      <div class="actions">
-        <button id="downloadAll" class="primary" type="button">전체 파일 다운로드</button>
-        <button id="downloadTokens" type="button">tokens.json 다운로드</button>
+    <!-- 2. Connect -->
+    <section id="view-connect" class="view" hidden>
+      <header class="topbar">
+        <h1>Connect</h1>
+        <span class="muted">프로젝트에 연결 · <span id="doneLabel">1</span> / 3 완료</span>
+        <span class="spacer"></span>
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="3" aria-valuenow="1" aria-label="연결 진행률"><div id="progressBar" style="width: 33%"></div></div>
+      </header>
+      <div class="body" style="gap: 10px">
+        <div class="step done">
+          <span class="ring" aria-hidden="true"></span>
+          <div class="step-body"><p class="step-title">Figma에서 토큰 읽기 <span id="readCount" style="font-weight: 400"></span></p></div>
+          <span class="good" style="font-size: 11px; font-weight: 700">완료</span>
+        </div>
+
+        <div id="step2" class="step doing">
+          <span class="ring" aria-hidden="true"></span>
+          <div class="step-body">
+            <div class="row"><p class="step-title" style="flex: 1; min-width: 200px">tokens.json을 프로젝트 루트에 두고 실행</p><button id="undoStep2" class="link when-done" type="button">되돌리기</button></div>
+            <div class="row when-doing">
+              <div class="command"><code>$ npx figma-token</code><button id="copyCommand" type="button">복사</button></div>
+              <button id="ranCommand" class="primary" type="button">실행했어요</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="step3" class="step">
+          <span class="ring" aria-hidden="true"></span>
+          <div class="step-body" style="gap: 10px">
+            <div>
+              <p class="step-title">PR마다 Figma와 코드 차이 검사</p>
+              <p class="muted" style="margin-top: 2px">Figma 값이 바뀌었는데 코드가 그대로면 PR이 실패해요. 머지 전에 어긋난 토큰을 잡아냅니다.</p>
+            </div>
+            <figure class="example">
+              <figcaption><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="var(--danger)"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg><b>figma-token / check</b><span class="muted">실패 · 토큰 2개 다름</span><span class="tag">예시</span></figcaption>
+              <div class="diff mono">
+                <span class="muted">token</span><span class="muted">code</span><span class="muted">Figma</span>
+                <span>color/primary</span><span class="bad">#5e6ad2</span><span class="good">#4f5bd5</span>
+                <span>radius/md</span><span class="bad">12</span><span class="good">10</span>
+              </div>
+              <footer>고치려면 <code style="color: var(--text)">$ npx figma-token</code><span style="margin-left: auto">Checked by figma-token</span></footer>
+            </figure>
+            <p class="muted">Secrets에 <code style="color: var(--text)">FIGMA_TOKEN</code>, <code style="color: var(--text)">FIGMA_FILE_KEY</code> 등록 후 <code style="color: var(--text)">.github/workflows/</code>에 추가</p>
+            <div class="row">
+              <button id="copyWorkflow" type="button">workflow 복사</button>
+              <button id="downloadWorkflow" class="mono" type="button">figma-token.yml</button>
+              <span id="workflowStatus" class="good" role="status" style="font-size: 11px"></span>
+            </div>
+          </div>
+        </div>
+
+        <div id="celebrate" class="celebrate" role="status" hidden>
+          <span class="blob happy mal-hop" aria-hidden="true"></span>
+          <div><strong>연결 끝! 이제 PR마다 자동으로 검사돼요</strong><p class="muted" style="margin-top: 2px">Figma에서 토큰이 바뀌면 다음 PR에서 바로 알려드려요.</p></div>
+        </div>
+        <div id="nextStep" class="next"><span id="remaining" class="mono"></span><span id="nextText"></span></div>
+
+        <details class="help">
+          <summary>막혔을 때 도움말 <span style="font-weight: 400">· 3</span></summary>
+          <details><summary>Secrets는 어디서 등록하나요?</summary><p>GitHub 저장소 → Settings → Secrets and variables → Actions → New repository secret에서 <code>FIGMA_TOKEN</code>, <code>FIGMA_FILE_KEY</code>를 추가하세요.</p></details>
+          <details><summary>FIGMA_FILE_KEY는 어디에 있나요?</summary><p>Figma 파일 주소 <code>figma.com/design/<b>여기</b>/파일이름</code>의 가운데 부분이에요.</p></details>
+          <details><summary>npx figma-token이 실행되지 않아요</summary><p>Node.js 18 이상이 필요해요. tokens.json이 명령을 실행하는 폴더(프로젝트 루트)에 있는지도 확인해 주세요.</p></details>
+        </details>
+        <p class="muted" style="font-size: 11px">진행 상황은 이 컴퓨터에 저장돼요. 다시 열어도 그대로예요.</p>
       </div>
     </section>
 
-    <section id="selectionManifests" class="component" hidden aria-labelledby="selection-title">
-      <strong id="selection-title" class="section-title">선택한 노드 분석</strong>
-      <p id="selectionManifestStatus" class="muted"></p>
-      <div id="selectionManifestDownloads" class="individual-actions"></div>
-    </section>
-
-    <section class="cli" aria-labelledby="cli-title">
-      <strong id="cli-title" class="section-title">CLI로 프로젝트에 적용</strong>
-      <p>tokens.json을 프로젝트 루트에 저장한 뒤 실행하세요.</p>
-      <pre><code>figma-token</code></pre>
-      <p class="muted">CLI는 파일 적용과 최신 상태 검사를 위한 선택 도구입니다.</p>
-    </section>
-
-    <section class="cli" aria-labelledby="ci-title">
-      <strong id="ci-title" class="section-title">PR마다 Figma와 코드 차이 검사</strong>
-      <ul class="steps" aria-label="설정 진행 상황">
-        <li id="stepRead">토큰 읽기</li>
-        <li id="stepDownload">토큰 파일 다운로드</li>
-        <li id="stepCi">CI workflow 추가</li>
-      </ul>
-      <p>Figma 값이 바뀌었는데 코드가 그대로면 PR 검사가 실패하고, 바뀐 토큰과 고치는 명령을 보여줍니다.</p>
-      <p class="muted">저장소 Secrets에 FIGMA_TOKEN, FIGMA_FILE_KEY를 등록한 뒤 아래 파일을 .github/workflows/에 넣으세요.</p>
-      <div class="individual-actions">
-        <button id="copyWorkflow" type="button">workflow 복사</button>
-        <button id="downloadWorkflow" type="button">figma-token.yml 다운로드</button>
-      </div>
-      <p id="workflowStatus" class="muted" role="status"></p>
-    </section>
-
-    <section class="cli" aria-labelledby="waitlist-title">
-      <strong id="waitlist-title" class="section-title">팀 기능 대기 명단</strong>
-      <p>PR 코멘트 리포트, 여러 형식 한 번에 검사, 알림을 준비 중입니다. 지금 기능은 모두 무료입니다.</p>
-      <div class="individual-actions">
-        <button id="joinWaitlist" type="button">대기 명단 남기기 (GitHub)</button>
+    <!-- 3. Selection -->
+    <section id="view-selection" class="view" hidden>
+      <header class="topbar"><h1>선택 분석</h1></header>
+      <div class="body">
+        <p class="muted">선택한 Frame, Component, Component Set별 결과입니다.</p>
+        <div id="selectionManifestDownloads" class="downloads"></div>
+        <div id="selectionErrors" class="downloads"></div>
       </div>
     </section>
 
-    <details>
-      <summary>개별 형식 다운로드</summary>
-      <div id="individualDownloads" class="individual-actions"></div>
-    </details>
+    <!-- 4. Team -->
+    <section id="view-team" class="view" hidden>
+      <header class="topbar"><h1>PR 코멘트 · 알림</h1><span class="soon" style="margin-left: 0">SOON</span></header>
+      <div class="body team">
+        <figure class="example">
+          <figcaption><span class="logo" style="width: 18px; height: 18px"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4L1.5 8 5 12M11 4l3.5 4-3.5 4"/></svg></span><b>figma-token</b><span class="muted">bot</span><span class="tag">예시 화면</span></figcaption>
+          <div class="lines mono">
+            <span class="muted">이 PR 이후 Figma에서 바뀐 토큰 2개</span>
+            <span class="row"><span class="dot" style="width: 10px; height: 10px; background: #4f5bd5"></span>color/primary <span class="muted">#5e6ad2 → #4f5bd5</span></span>
+            <span class="row"><span class="dot" style="width: 10px; height: 10px; border-radius: 4px 0 0 0; border-top: 1.5px solid var(--text-2); border-left: 1.5px solid var(--text-2)"></span>radius/md <span class="muted">12 → 10</span></span>
+          </div>
+        </figure>
+        <div class="team-copy">
+          <strong>디자이너가 토큰을 바꾸면 PR에 코멘트로 알려드릴 예정이에요</strong>
+          <p class="muted" style="margin-top: 6px">결제는 없어요. 지금은 모두 무료이고, 대기 명단은 GitHub 이슈로 받아요.</p>
+        </div>
+        <button id="joinWaitlist" class="primary" type="button" style="height: 36px; padding: 0 18px">대기 명단 등록 →</button>
+        <p class="muted" style="margin-top: -8px; font-size: 11px">브라우저에서 GitHub 이슈 양식이 열려요</p>
+      </div>
+    </section>
   </main>
+
+  <div id="toast" class="toast mal-pop" role="status" hidden><span class="blob happy mal-hop" aria-hidden="true"></span><span id="toastText"></span></div>
+  <svg id="resizeHandle" class="resize-handle" viewBox="0 0 14 14" aria-label="창 크기 조절" role="separator"><path d="M13 5L5 13M13 9L9 13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
 
   <script>
     let files;
-    let resizeFrame;
+    let view = "tokens";
+    let ready = false;
+    let toastTimer;
+    let refreshing = false;
+    const progress = { step2: false, step3: false };
     const tokenTypes = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
+    const typeDots = { color: "#ff6b5a", spacing: "#6ba8ff", radius: "#ffc21a", borderWidth: "#3fd47f", size: "#a39c8e", fontSize: "#c58cff", opacity: "#a39c8e" };
+    const typeGlyphs = { spacing: "↔", borderWidth: "─", size: "□", fontSize: "Aa", opacity: "%" };
+    const blobShapes = ["50% 50% 44% 44% / 64% 64% 36% 36%", "48% 52% 44% 46% / 66% 62% 38% 34%", "52% 48% 46% 44% / 62% 66% 34% 38%", "50% 50% 42% 46% / 66% 64% 36% 34%"];
     const utf8Flag = 0x0800;
     const textEncoder = new TextEncoder();
     const workflowYaml = [
@@ -131,37 +355,190 @@
       for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
       return value >>> 0;
     });
+    const $ = (id) => document.getElementById(id);
 
     onmessage = ({ data }) => handlePluginMessage(data.pluginMessage);
 
     function handlePluginMessage(message) {
-      if (message.type === "error") {
-        showExportError(message.message);
-        return;
-      }
-      if (message.type === "manifest" || message.type === "manifest-error") {
-        showSelectionManifest(message);
-        return;
-      }
+      if (message.type === "error") return showExportError(message.message);
+      if (message.type === "progress") return applyProgress(message.progress);
+      if (message.type === "manifest" || message.type === "manifest-error") return showSelectionManifest(message);
       if (message.type === "exports") showExports(message);
+    }
+
+    function show(next) {
+      view = next;
+      document.querySelectorAll(".nav [data-view]").forEach((button) => button.setAttribute("aria-current", button.dataset.view === view ? "page" : "false"));
+      $("formatsMenu").hidden = true;
+      if (!ready) return;
+      for (const name of ["tokens", "connect", "selection", "team"]) $(`view-${name}`).hidden = name !== view;
     }
 
     function showExportError(message) {
       files = undefined;
-      document.getElementById("result").hidden = true;
-      document.getElementById("status").hidden = false;
-      document.getElementById("status").textContent = `오류: ${message}`;
+      ready = false;
+      refreshing = false;
+      $("loading").hidden = true;
+      $("error").hidden = false;
+      document.querySelectorAll(".view").forEach((section) => section.hidden = true);
+      $("errorText").textContent = `오류: ${message}`;
+    }
+
+    function showExports(message) {
+      files = message.files;
+      ready = true;
+      $("loading").hidden = true;
+      $("error").hidden = true;
+      $("tokenCount").textContent = String(message.count);
+      $("navCount").textContent = String(message.count);
+      $("readCount").textContent = `· ${message.count}개`;
+      $("empty").hidden = message.count > 0;
+      $("tokensBody").hidden = message.count === 0;
+      showBoard(message.files["tokens.json"], message.typeCounts);
+      showSkippedVariables(message.skippedVariables || []);
+      showExportDownloads();
+      show(view);
+      if (refreshing) flash(`변수를 다시 읽었어요 · ${message.count}개`);
+      refreshing = false;
+    }
+
+    function applyProgress(saved) {
+      progress.step2 = Boolean(saved?.step2);
+      progress.step3 = Boolean(saved?.step3);
+      renderProgress(false);
+    }
+
+    function setStep(step, done) {
+      if (progress[step] === done) return;
+      progress[step] = done;
+      parent.postMessage({ pluginMessage: { type: "save-progress", progress: { ...progress } } }, "*");
+      renderProgress(true);
+    }
+
+    function renderProgress(animate) {
+      const doneCount = 1 + Number(progress.step2) + Number(progress.step3);
+      const allDone = doneCount === 3;
+      $("step2").className = `step ${progress.step2 ? "done" : "doing"}`;
+      $("step3").className = `step ${progress.step3 ? "done" : progress.step2 ? "doing" : ""}`;
+      $("doneCount").textContent = `${doneCount}/3`;
+      $("doneCount").classList.toggle("all", allDone);
+      $("doneLabel").textContent = String(doneCount);
+      $("progressBar").style.width = `${Math.round(doneCount / 3 * 100)}%`;
+      $("progressBar").parentElement.setAttribute("aria-valuenow", String(doneCount));
+      $("navBlob").className = `blob${allDone ? ` all happy${animate ? " mal-hop" : ""}` : ""}`;
+      $("celebrate").hidden = !allDone;
+      $("nextStep").hidden = allDone;
+      $("remaining").textContent = `${3 - doneCount}단계 남음`;
+      $("nextText").textContent = progress.step2 ? "다음: CI만 연결하면 끝이에요. workflow를 복사해 붙여넣으세요." : "다음: tokens.json을 받아서 프로젝트에서 한 번 실행해 보세요.";
+    }
+
+    function showBoard(tokensJson, typeCounts) {
+      let tokens = [];
+      try {
+        tokens = JSON.parse(tokensJson || "[]");
+      } catch {
+        tokens = [];
+      }
+      const columns = tokenTypes.filter((type) => typeCounts?.[type]).map((type) => {
+        const ofType = tokens.filter((token) => token.type === type);
+        const column = document.createElement("div");
+        const head = document.createElement("div");
+        const body = document.createElement("div");
+        column.className = "column";
+        head.className = "column-head";
+        head.innerHTML = `<span class="dot" style="background: ${typeDots[type]}"></span><span class="name"></span><span class="mono muted" style="font-weight: 400"></span>`;
+        head.children[1].textContent = type;
+        head.children[2].textContent = typeCounts[type];
+        body.className = "column-body";
+        body.append(...ofType.map(createTokenCard));
+        column.append(head, body);
+        return column;
+      });
+      $("board").replaceChildren(...columns);
+    }
+
+    function createTokenCard({ name, type, value }, index) {
+      const card = document.createElement("button");
+      const mark = document.createElement("span");
+      const label = document.createElement("span");
+      const detail = document.createElement("span");
+      const valueText = type === "color" && value ? toHex(value) : typeof value === "object" ? JSON.stringify(value) : String(value);
+      card.type = "button";
+      card.className = "token";
+      card.title = `${name} · 이름 복사`;
+      mark.setAttribute("aria-hidden", "true");
+      if (type === "color" && value) {
+        mark.className = "blob";
+        mark.style.background = `rgba(${value.r}, ${value.g}, ${value.b}, ${value.a})`;
+        mark.style.borderRadius = blobShapes[index % blobShapes.length];
+        mark.style.setProperty("--eye", value.a >= 0.6 && luminance(value) < 0.08 ? "#ffffff" : "#1a1814");
+      } else if (type === "radius") {
+        mark.className = "radius";
+        mark.style.borderRadius = `${Math.min(Number(value) / 2, 9)}px`;
+      } else {
+        mark.className = "glyph";
+        mark.textContent = typeGlyphs[type] || "";
+      }
+      label.className = "label";
+      label.textContent = name.includes("/") ? name.slice(name.indexOf("/") + 1) : name;
+      detail.className = "value";
+      detail.textContent = valueText;
+      card.onclick = () => {
+        if (!copyText(name)) return flash("복사하지 못했어요");
+        card.classList.add("copied");
+        detail.textContent = "복사됨";
+        setTimeout(() => {
+          card.classList.remove("copied");
+          detail.textContent = valueText;
+        }, 1200);
+      };
+      card.append(mark, label, detail);
+      return card;
+    }
+
+    function luminance({ r, g, b }) {
+      const [red, green, blue] = [r, g, b].map((channel) => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    }
+
+    function toHex({ r, g, b, a }) {
+      const hex = [r, g, b].map((channel) => Math.round(channel).toString(16).padStart(2, "0")).join("");
+      return a < 1 ? `#${hex} ${Math.round(a * 100)}%` : `#${hex}`;
+    }
+
+    function showSkippedVariables(skippedVariables) {
+      $("warning").hidden = !skippedVariables.length;
+      $("skippedTitle").textContent = `변수 ${skippedVariables.length}개가 빠졌어요`;
+      $("skipped").replaceChildren(...skippedVariables.map((name) => {
+        const item = document.createElement("span");
+        item.textContent = name;
+        return item;
+      }));
+    }
+
+    function showExportDownloads() {
+      const buttons = Object.keys(files)
+        .filter((filename) => filename !== "tokens.json")
+        .map((filename) => createDownloadButton(filename, () => download(filename)));
+      $("individualDownloads").replaceChildren(...buttons);
     }
 
     function showSelectionManifest(message) {
-      document.getElementById("selectionManifests").hidden = false;
-      const status = document.getElementById("selectionManifestStatus");
+      $("navSelection").hidden = false;
       if (message.type === "manifest-error") {
-        status.textContent = friendlyManifestError(message.kind, message.message);
-        return;
+        const error = document.createElement("p");
+        error.className = "error-box";
+        error.setAttribute("role", "alert");
+        error.style.fontFamily = "inherit";
+        error.textContent = friendlyManifestError(message.kind, message.message);
+        $("selectionErrors").append(error);
+      } else {
+        $("selectionManifestDownloads").append(createManifestDownloadButton(message));
       }
-      status.textContent = "선택한 Frame, Component, Component Set별 결과입니다.";
-      document.getElementById("selectionManifestDownloads").append(createManifestDownloadButton(message));
+      $("selectionCount").textContent = String($("selectionManifestDownloads").children.length || "");
     }
 
     function createManifestDownloadButton(message) {
@@ -175,77 +552,12 @@
       });
     }
 
-    function showExports(message) {
-      files = message.files;
-      document.getElementById("status").hidden = true;
-      document.getElementById("result").hidden = false;
-      document.getElementById("tokenCount").textContent = `${message.count}개 토큰을 읽었습니다.`;
-      showTypeCounts(message.typeCounts);
-      showSkippedVariables(message.skippedVariables || []);
-      showExportDownloads();
-      markStep("stepRead");
-    }
-
-    function markStep(id) {
-      document.getElementById(id).classList.add("done");
-    }
-
-    function copyWorkflow() {
-      const textarea = document.createElement("textarea");
-      textarea.value = workflowYaml;
-      document.body.append(textarea);
-      textarea.select();
-      const copied = document.execCommand("copy");
-      textarea.remove();
-      document.getElementById("workflowStatus").textContent = copied ? "복사했습니다. .github/workflows/figma-token.yml로 저장하세요." : "복사하지 못했습니다. 파일로 다운로드하세요.";
-      if (copied) markStep("stepCi");
-    }
-
-    function showTypeCounts(typeCounts) {
-      const counts = tokenTypes.filter((type) => typeCounts?.[type]).map((type) => {
-        const item = document.createElement("li");
-        item.textContent = `${type} ${typeCounts[type]}개`;
-        return item;
-      });
-      document.getElementById("counts").replaceChildren(...counts);
-    }
-
-    function showSkippedVariables(skippedVariables) {
-      document.getElementById("warning").hidden = !skippedVariables.length;
-      document.getElementById("skippedStatus").textContent = "다음 변수는 이름 규칙과 맞지 않아 제외되었습니다.";
-      document.getElementById("skipped").replaceChildren(...skippedVariables.map((name) => {
-        const item = document.createElement("li");
-        item.textContent = name;
-        return item;
-      }));
-    }
-
-    function showExportDownloads() {
-      document.getElementById("downloadAll").onclick = () => downloadAll();
-      document.getElementById("downloadTokens").onclick = () => download("tokens.json");
-      document.getElementById("copyWorkflow").onclick = () => copyWorkflow();
-      document.getElementById("joinWaitlist").onclick = () => parent.postMessage({ pluginMessage: { type: "open-waitlist" } }, "*");
-      document.getElementById("downloadWorkflow").onclick = () => {
-        triggerDownload(new Blob([workflowYaml], { type: "text/yaml" }), "figma-token.yml");
-        markStep("stepCi");
-      };
-      const buttons = Object.keys(files)
-        .filter((filename) => filename !== "tokens.json")
-        .map((filename) => createDownloadButton(`${filename} 다운로드`, () => download(filename)));
-      document.getElementById("individualDownloads").replaceChildren(...buttons);
-    }
-
     function createDownloadButton(label, onClick) {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = label;
       button.onclick = onClick;
       return button;
-    }
-
-    function download(filename) {
-      markStep("stepDownload");
-      triggerDownload(new Blob([files[filename]], { type: "text/plain" }), filename);
     }
 
     function friendlyManifestError(kind, message) {
@@ -256,14 +568,40 @@
       return `${label} 분석 결과를 만들지 못했습니다. 잠시 후 다시 시도하세요.`;
     }
 
-    function resizeToContent() {
-      cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(() => parent.postMessage({ pluginMessage: { type: "resize", height: document.body.scrollHeight } }, "*"));
+    function copyText(text) {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      document.body.append(textarea);
+      textarea.select();
+      const copied = document.execCommand("copy");
+      textarea.remove();
+      return copied;
+    }
+
+    function flash(message) {
+      clearTimeout(toastTimer);
+      const toast = $("toast");
+      toast.hidden = true;
+      $("toastText").textContent = message;
+      requestAnimationFrame(() => toast.hidden = false);
+      toastTimer = setTimeout(() => toast.hidden = true, 1800);
+    }
+
+    function setWorkflowStatus(message, ok) {
+      $("workflowStatus").textContent = message;
+      $("workflowStatus").classList.toggle("fail", !ok);
+    }
+
+    function download(filename) {
+      setStep("step2", true);
+      triggerDownload(new Blob([files[filename]], { type: "text/plain" }), filename);
+      flash(`${filename} 다운로드됨`);
     }
 
     function downloadAll() {
-      markStep("stepDownload");
+      setStep("step2", true);
       triggerDownload(new Blob([createZip(Object.entries(files))], { type: "application/zip" }), "figma-token-export.zip");
+      flash("figma-token-export.zip 다운로드됨");
     }
 
     function triggerDownload(blob, filename) {
@@ -316,9 +654,57 @@
       return result;
     }
 
-    new MutationObserver(resizeToContent).observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true });
+    document.querySelectorAll(".nav [data-view]").forEach((button) => button.onclick = () => show(button.dataset.view));
+    $("refresh").onclick = () => {
+      $("selectionManifestDownloads").replaceChildren();
+      $("selectionErrors").replaceChildren();
+      $("navSelection").hidden = true;
+      if (view === "selection") view = "tokens";
+      refreshing = true;
+      parent.postMessage({ pluginMessage: { type: "refresh" } }, "*");
+    };
+    $("retry").onclick = () => $("refresh").onclick();
+    $("downloadAll").onclick = () => downloadAll();
+    $("downloadTokens").onclick = () => download("tokens.json");
+    $("formatsToggle").onclick = () => {
+      $("formatsMenu").hidden = !$("formatsMenu").hidden;
+      $("formatsToggle").setAttribute("aria-expanded", String(!$("formatsMenu").hidden));
+    };
+    $("copyCommand").onclick = () => {
+      const copied = copyText("npx figma-token");
+      $("copyCommand").textContent = copied ? "복사됨" : "실패";
+      setTimeout(() => $("copyCommand").textContent = "복사", 1500);
+    };
+    $("ranCommand").onclick = () => setStep("step2", true);
+    $("undoStep2").onclick = () => setStep("step2", false);
+    $("copyWorkflow").onclick = () => {
+      if (!copyText(workflowYaml)) return setWorkflowStatus("복사하지 못했어요. figma-token.yml을 다운로드해 주세요.", false);
+      setWorkflowStatus("복사했어요. .github/workflows/figma-token.yml에 붙여넣으세요.", true);
+      setStep("step3", true);
+    };
+    $("downloadWorkflow").onclick = () => {
+      triggerDownload(new Blob([workflowYaml], { type: "text/yaml" }), "figma-token.yml");
+      setWorkflowStatus("figma-token.yml을 받았어요. .github/workflows/에 넣으세요.", true);
+      setStep("step3", true);
+    };
+    $("joinWaitlist").onclick = () => {
+      parent.postMessage({ pluginMessage: { type: "open-waitlist" } }, "*");
+      flash("브라우저에서 대기 명단을 열었어요");
+    };
+    const resizeHandle = $("resizeHandle");
+    resizeHandle.addEventListener("pointerdown", (event) => {
+      const start = { x: event.screenX, y: event.screenY, width: innerWidth, height: innerHeight };
+      const sizeAt = (move, done) => ({ type: "user-resize", width: start.width + move.screenX - start.x, height: start.height + move.screenY - start.y, done });
+      resizeHandle.setPointerCapture(event.pointerId);
+      resizeHandle.onpointermove = (move) => parent.postMessage({ pluginMessage: sizeAt(move, false) }, "*");
+      resizeHandle.onpointerup = (up) => {
+        resizeHandle.onpointermove = null;
+        resizeHandle.onpointerup = null;
+        parent.postMessage({ pluginMessage: sizeAt(up, true) }, "*");
+      };
+    });
+    renderProgress(false);
     parent.postMessage({ pluginMessage: { type: "ui-ready" } }, "*");
-    resizeToContent();
   </script>
 </body>
 </html>
