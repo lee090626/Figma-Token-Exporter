@@ -335,8 +335,8 @@
         <p class="muted">선택한 Frame, Component, Component Set별 결과입니다.</p>
         <div id="selectionEmpty" class="state">
           <span class="blob sleepy" style="width: 56px; height: 50px" aria-hidden="true"></span>
-          <strong>선택한 항목이 없어요</strong>
-          <p>캔버스에서 Frame, Component, Component Set을 선택하면 쓰인 토큰을 바로 분석해 드려요.</p>
+          <strong id="selectionEmptyTitle">선택한 항목이 없어요</strong>
+          <p id="selectionEmptyText">캔버스에서 Frame, Component, Component Set을 선택하면 쓰인 토큰을 바로 분석해 드려요.</p>
         </div>
         <div id="selectionManifestDownloads" class="downloads"></div>
         <div id="selectionErrors" class="downloads"></div>
@@ -414,10 +414,11 @@
     function handlePluginMessage(message) {
       if (message.type === "selection-changed") return readSelectionSoon();
       if (message.type === "baseline-saved") return baselineSaved(message);
-      const isManifest = message.type === "manifest" || message.type === "manifest-error";
+      const isManifest = message.type === "manifest" || message.type === "manifest-error" || message.type === "manifest-none";
       if (message.type !== "progress" && message.requestId !== (isManifest ? selectionId : requestId)) return;
       if (message.type === "error") return showExportError(message.message);
       if (message.type === "progress") return applyProgress(message.progress);
+      if (message.type === "manifest-none") return setSelectionEmpty(message.selected ? "unsupported" : "none");
       if (message.type === "manifest" || message.type === "manifest-error") return showSelectionManifest(message);
       if (message.type === "exports") showExports(message);
     }
@@ -670,6 +671,18 @@
       $("selectionManifestDownloads").replaceChildren();
       $("selectionErrors").replaceChildren();
       $("selectionCount").textContent = "";
+      setSelectionEmpty("analyzing");
+    }
+
+    // Selection view: analyzing → results | none | unsupported (plugin replies "manifest-none" when nothing is analyzable).
+    function setSelectionEmpty(state) {
+      const [title, text] = {
+        analyzing: ["선택한 항목을 분석하고 있어요", "잠시만 기다려 주세요."],
+        none: ["선택한 항목이 없어요", "캔버스에서 Frame, Component, Component Set을 선택하면 쓰인 토큰을 바로 분석해 드려요."],
+        unsupported: ["분석할 수 없는 항목이에요", "Frame, Component, Component Set만 분석해요. Text, Group, Instance는 감싸는 Frame을 선택해 주세요."]
+      }[state];
+      $("selectionEmptyTitle").textContent = title;
+      $("selectionEmptyText").textContent = text;
       $("selectionEmpty").hidden = false;
     }
 
