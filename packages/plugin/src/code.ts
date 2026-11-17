@@ -1,11 +1,14 @@
 /// <reference types="@figma/plugin-typings" />
 
+import { isDesignTokenArray, type DesignToken } from "@lee090626/core";
 import { createComponentManifest, createFrameManifest, frameManifestFiles, variableIdsFromBindings } from "./componentManifest.js";
 import { createExports } from "./exportVariables.js";
 
 const WAITLIST_URL = "https://github.com/lee090626/Figma-Token-Exporter/issues/new?template=team-waitlist.yml";
 const UI_SIZE_KEY = "uiSize";
 const PROGRESS_KEY = "connectProgress";
+// Stored on the document so everyone editing the file shares the same baseline.
+const BASELINE_KEY = "tokenBaseline";
 
 figma.showUI(__html__, { width: 880, height: 640, themeColors: true });
 figma.clientStorage.getAsync(UI_SIZE_KEY).then((size) => {
@@ -20,7 +23,8 @@ type UiMessage =
   | { type: "read-selection"; requestId?: number }
   | { type: "user-resize"; width: number; height: number; done: boolean }
   | { type: "save-progress"; progress?: { step2?: boolean; step3?: boolean } }
-  | { type: "open-waitlist" };
+  | { type: "open-waitlist" }
+  | { type: "save-baseline"; tokens: string };
 
 // Plugin → UI: "selection-changed" asks the UI to request a fresh selection analysis (it debounces).
 figma.on("selectionchange", () => figma.ui.postMessage({ type: "selection-changed" }));
@@ -45,6 +49,10 @@ figma.ui.onmessage = (message: UiMessage) => {
     sendSelectionManifests(message.requestId);
     return;
   }
+  if (message.type === "save-baseline") {
+    figma.ui.postMessage({ type: "baseline-saved", ...saveBaseline(message.tokens) });
+    return;
+  }
   if (message.type === "read-selection") {
     sendSelectionManifests(message.requestId);
     return;
@@ -57,6 +65,28 @@ figma.ui.onmessage = (message: UiMessage) => {
   sendVariables(message.requestId).catch((error: unknown) => sendExportError(error, message.requestId));
   sendSelectionManifests(message.requestId);
 };
+
+function readBaseline(): { tokens: DesignToken[]; savedAt: number } | null {
+  try {
+    const saved = JSON.parse(figma.root.getPluginData(BASELINE_KEY) || "null");
+    return saved && isDesignTokenArray(saved.tokens) && typeof saved.savedAt === "number" ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveBaseline(tokensJson: string) {
+  try {
+    const tokens: unknown = JSON.parse(tokensJson);
+    if (!isDesignTokenArray(tokens)) return { ok: false };
+    const savedAt = Date.now();
+    figma.root.setPluginData(BASELINE_KEY, JSON.stringify({ tokens, savedAt }));
+    return { ok: true, savedAt };
+  } catch {
+    // View-only files cannot store plugin data.
+    return { ok: false };
+  }
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Math.round(value)));
@@ -75,6 +105,7 @@ function errorMessage(error: unknown) {
 }
 
 async function sendVariables(requestId?: number) {
+  const baseline = readBaseline();
   const [collections, variables] = await Promise.all([
     figma.variables.getLocalVariableCollectionsAsync(),
     figma.variables.getLocalVariablesAsync()
@@ -82,9 +113,10 @@ async function sendVariables(requestId?: number) {
   const exports = createExports(
     collections.map(({ id, name, defaultModeId, modes }) => ({ id, name, defaultModeId, modes })),
     variables.map(({ id, name, description, variableCollectionId, resolvedType, valuesByMode }) =>
-      ({ id, name, description, variableCollectionId, resolvedType, valuesByMode }))
+      ({ id, name, description, variableCollectionId, resolvedType, valuesByMode })),
+    baseline?.tokens ?? null
   );
-  figma.ui.postMessage({ type: "exports", requestId, ...exports });
+  figma.ui.postMessage({ type: "exports", requestId, baselineSavedAt: baseline?.savedAt ?? null, ...exports });
 }
 
 async function sendSelectionManifests(requestId?: number) {
