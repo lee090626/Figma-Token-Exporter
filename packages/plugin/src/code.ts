@@ -13,7 +13,15 @@ figma.clientStorage.getAsync(UI_SIZE_KEY).then((size) => {
   figma.ui.resize(clamp(size.width, 480, 1600), clamp(size.height, 320, 1200));
 }).catch(() => undefined);
 
-figma.ui.onmessage = (message) => {
+// UI → plugin messages. ui.html mirrors this list; requestId is echoed so the UI can drop stale replies.
+type UiMessage =
+  | { type: "ui-ready"; requestId?: number }
+  | { type: "refresh"; requestId?: number }
+  | { type: "user-resize"; width: number; height: number; done: boolean }
+  | { type: "save-progress"; progress?: { step2?: boolean; step3?: boolean } }
+  | { type: "open-waitlist" };
+
+figma.ui.onmessage = (message: UiMessage) => {
   if (message.type === "user-resize") {
     const size = { width: clamp(message.width, 480, 1600), height: clamp(message.height, 320, 1200) };
     figma.ui.resize(size.width, size.height);
@@ -29,8 +37,8 @@ figma.ui.onmessage = (message) => {
     return;
   }
   if (message.type === "refresh") {
-    sendVariables().catch(sendExportError);
-    sendSelectionManifests();
+    sendVariables(message.requestId).catch((error: unknown) => sendExportError(error, message.requestId));
+    sendSelectionManifests(message.requestId);
     return;
   }
   if (message.type !== "ui-ready") return;
@@ -38,27 +46,27 @@ figma.ui.onmessage = (message) => {
   figma.clientStorage.getAsync(PROGRESS_KEY)
     .then((progress) => figma.ui.postMessage({ type: "progress", progress }))
     .catch(() => undefined);
-  sendVariables().catch(sendExportError);
-  sendSelectionManifests();
+  sendVariables(message.requestId).catch((error: unknown) => sendExportError(error, message.requestId));
+  sendSelectionManifests(message.requestId);
 };
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Math.round(value)));
 }
 
-function sendExportError(error: unknown) {
-  figma.ui.postMessage({ type: "error", message: errorMessage(error) });
+function sendExportError(error: unknown, requestId?: number) {
+  figma.ui.postMessage({ type: "error", requestId, message: errorMessage(error) });
 }
 
-function sendManifestError(kind: string, error: unknown) {
-  figma.ui.postMessage({ type: "manifest-error", kind, message: errorMessage(error) });
+function sendManifestError(kind: string, error: unknown, requestId?: number) {
+  figma.ui.postMessage({ type: "manifest-error", requestId, kind, message: errorMessage(error) });
 }
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
-async function sendVariables() {
+async function sendVariables(requestId?: number) {
   const [collections, variables] = await Promise.all([
     figma.variables.getLocalVariableCollectionsAsync(),
     figma.variables.getLocalVariablesAsync()
@@ -68,18 +76,18 @@ async function sendVariables() {
     variables.map(({ id, name, description, variableCollectionId, resolvedType, valuesByMode }) =>
       ({ id, name, description, variableCollectionId, resolvedType, valuesByMode }))
   );
-  figma.ui.postMessage({ type: "exports", ...exports });
+  figma.ui.postMessage({ type: "exports", requestId, ...exports });
 }
 
-async function sendSelectionManifests() {
+async function sendSelectionManifests(requestId?: number) {
   const selectedComponents = figma.currentPage.selection.filter((node): node is ComponentNode => node.type === "COMPONENT");
   const selectedComponentSets = figma.currentPage.selection.filter((node): node is ComponentSetNode => node.type === "COMPONENT_SET");
   const selectedFrames = figma.currentPage.selection.filter((node): node is FrameNode => node.type === "FRAME");
   const tasks: Promise<void>[] = [];
 
-  if (selectedComponents.length) tasks.push(sendComponentManifests("components", selectedComponents).catch((error: unknown) => sendManifestError("component", error)));
-  if (selectedComponentSets.length) tasks.push(sendComponentManifests("componentSets", selectedComponentSets).catch((error: unknown) => sendManifestError("component set", error)));
-  if (selectedFrames.length) tasks.push(sendFrameManifests(selectedFrames).catch((error: unknown) => sendManifestError("frame", error)));
+  if (selectedComponents.length) tasks.push(sendComponentManifests("components", selectedComponents, requestId).catch((error: unknown) => sendManifestError("component", error, requestId)));
+  if (selectedComponentSets.length) tasks.push(sendComponentManifests("componentSets", selectedComponentSets, requestId).catch((error: unknown) => sendManifestError("component set", error, requestId)));
+  if (selectedFrames.length) tasks.push(sendFrameManifests(selectedFrames, requestId).catch((error: unknown) => sendManifestError("frame", error, requestId)));
 
   await Promise.all(tasks);
 }
@@ -113,13 +121,14 @@ function formatVariableName(variable: Variable, collectionName?: string) {
   return collectionName ? `${collectionName} / ${variable.name}` : variable.name;
 }
 
-async function sendComponentManifests(kind: "components" | "componentSets", components: Array<ComponentNode | ComponentSetNode>) {
+async function sendComponentManifests(kind: "components" | "componentSets", components: Array<ComponentNode | ComponentSetNode>, requestId?: number) {
   const manifests = await Promise.all(components.map(createComponentManifestFor));
   const key = kind === "components" ? "components" : "componentSets";
   const variableCount = new Set(manifests.flatMap((manifest) => manifest.variables)).size;
 
   figma.ui.postMessage({
     type: "manifest",
+    requestId,
     kind,
     filename: kind === "components" ? "components.json" : "component-sets.json",
     file: `${JSON.stringify({ [key]: manifests }, null, 2)}\n`,
@@ -160,12 +169,13 @@ function namesForIds(ids: Iterable<string>, variableNames: Map<string, string>) 
   return [...ids].map((id) => variableNames.get(id)).filter((name): name is string => Boolean(name));
 }
 
-async function sendFrameManifests(frames: FrameNode[]) {
+async function sendFrameManifests(frames: FrameNode[], requestId?: number) {
   const manifests = await Promise.all(frames.map(createFrameManifestFor));
   const files = frameManifestFiles(manifests);
 
   figma.ui.postMessage({
     type: "manifest",
+    requestId,
     kind: "frames",
     filename: "figma-frames.zip",
     files,
