@@ -28,6 +28,8 @@
     .muted { color: var(--text-2); }
 
     button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); background: var(--card); font: 500 12px Inter, system-ui, sans-serif; white-space: nowrap; cursor: pointer; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    #refresh:disabled { cursor: progress; }
     button:focus-visible, summary:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
     button.primary { border-color: transparent; color: var(--btn-text); background: var(--btn); font-weight: 600; }
     button.mono { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 11px; }
@@ -250,7 +252,7 @@
           <span class="ring" aria-hidden="true"></span>
           <div class="step-body" style="gap: 10px">
             <div>
-              <p class="step-title">PR마다 Figma와 코드 차이 검사</p>
+              <div class="row"><p class="step-title" style="flex: 1; min-width: 200px">PR마다 Figma와 코드 차이 검사</p><button id="undoStep3" class="link when-done" type="button">되돌리기</button></div>
               <p class="muted" style="margin-top: 2px">Figma 값이 바뀌었는데 코드가 그대로면 PR이 실패해요. 머지 전에 어긋난 토큰을 잡아냅니다.</p>
             </div>
             <figure class="example">
@@ -267,6 +269,10 @@
               <button id="copyWorkflow" type="button">workflow 복사</button>
               <button id="downloadWorkflow" class="mono" type="button">figma-token.yml</button>
               <span id="workflowStatus" class="good" role="status" style="font-size: 11px"></span>
+            </div>
+            <div class="row when-doing">
+              <button id="addedWorkflow" class="primary" type="button">추가했어요</button>
+              <span id="step3Hint" class="muted" style="font-size: 11px"></span>
             </div>
           </div>
         </div>
@@ -325,9 +331,11 @@
   <script>
     let files;
     let view = "tokens";
-    let ready = false;
+    // phase: loading → ready ⇄ refreshing; any → error; error → loading (retry). Replies with an old requestId are dropped.
+    let phase = "loading";
+    let requestId = 0;
+    let progressTouched = false;
     let toastTimer;
-    let refreshing = false;
     const progress = { step2: false, step3: false };
     const tokenTypes = ["color", "spacing", "radius", "borderWidth", "size", "fontSize", "opacity"];
     const typeDots = { color: "#ff6b5a", spacing: "#6ba8ff", radius: "#ffc21a", borderWidth: "#3fd47f", size: "#a39c8e", fontSize: "#c58cff", opacity: "#a39c8e" };
@@ -360,6 +368,7 @@
     onmessage = ({ data }) => handlePluginMessage(data.pluginMessage);
 
     function handlePluginMessage(message) {
+      if (message.type !== "progress" && message.requestId !== requestId) return;
       if (message.type === "error") return showExportError(message.message);
       if (message.type === "progress") return applyProgress(message.progress);
       if (message.type === "manifest" || message.type === "manifest-error") return showSelectionManifest(message);
@@ -370,14 +379,15 @@
       view = next;
       document.querySelectorAll(".nav [data-view]").forEach((button) => button.setAttribute("aria-current", button.dataset.view === view ? "page" : "false"));
       $("formatsMenu").hidden = true;
-      if (!ready) return;
+      $("formatsToggle").setAttribute("aria-expanded", "false");
+      if (phase !== "ready" && phase !== "refreshing") return;
       for (const name of ["tokens", "connect", "selection", "team"]) $(`view-${name}`).hidden = name !== view;
     }
 
     function showExportError(message) {
       files = undefined;
-      ready = false;
-      refreshing = false;
+      phase = "error";
+      $("refresh").disabled = false;
       $("loading").hidden = true;
       $("error").hidden = false;
       document.querySelectorAll(".view").forEach((section) => section.hidden = true);
@@ -385,8 +395,10 @@
     }
 
     function showExports(message) {
+      const wasRefreshing = phase === "refreshing";
       files = message.files;
-      ready = true;
+      phase = "ready";
+      $("refresh").disabled = false;
       $("loading").hidden = true;
       $("error").hidden = true;
       $("tokenCount").textContent = String(message.count);
@@ -398,19 +410,23 @@
       showSkippedVariables(message.skippedVariables || []);
       showExportDownloads();
       show(view);
-      if (refreshing) flash(`변수를 다시 읽었어요 · ${message.count}개`);
-      refreshing = false;
+      if (wasRefreshing) flash(`변수를 다시 읽었어요 · ${message.count}개`);
     }
 
     function applyProgress(saved) {
+      if (progressTouched) return;
       progress.step2 = Boolean(saved?.step2);
-      progress.step3 = Boolean(saved?.step3);
+      progress.step3 = progress.step2 && Boolean(saved?.step3);
       renderProgress(false);
     }
 
+    // Steps complete in order: step3 needs step2, and undoing step2 undoes step3.
     function setStep(step, done) {
       if (progress[step] === done) return;
+      if (step === "step3" && done && !progress.step2) return;
+      progressTouched = true;
       progress[step] = done;
+      if (!progress.step2) progress.step3 = false;
       parent.postMessage({ pluginMessage: { type: "save-progress", progress: { ...progress } } }, "*");
       renderProgress(true);
     }
@@ -420,6 +436,8 @@
       const allDone = doneCount === 3;
       $("step2").className = `step ${progress.step2 ? "done" : "doing"}`;
       $("step3").className = `step ${progress.step3 ? "done" : progress.step2 ? "doing" : ""}`;
+      $("addedWorkflow").disabled = !progress.step2;
+      $("step3Hint").textContent = progress.step2 ? "" : "이전 단계를 먼저 완료해 주세요.";
       $("doneCount").textContent = `${doneCount}/3`;
       $("doneCount").classList.toggle("all", allDone);
       $("doneLabel").textContent = String(doneCount);
@@ -429,7 +447,7 @@
       $("celebrate").hidden = !allDone;
       $("nextStep").hidden = allDone;
       $("remaining").textContent = `${3 - doneCount}단계 남음`;
-      $("nextText").textContent = progress.step2 ? "다음: CI만 연결하면 끝이에요. workflow를 복사해 붙여넣으세요." : "다음: tokens.json을 받아서 프로젝트에서 한 번 실행해 보세요.";
+      $("nextText").textContent = progress.step2 ? "다음: workflow를 .github/workflows/에 추가하고 '추가했어요'를 눌러 주세요." : "다음: tokens.json을 받아서 프로젝트에서 실행하고 '실행했어요'를 눌러 주세요.";
     }
 
     function showBoard(tokensJson, typeCounts) {
@@ -487,7 +505,8 @@
         if (!copyText(name)) return flash("복사하지 못했어요");
         card.classList.add("copied");
         detail.textContent = "복사됨";
-        setTimeout(() => {
+        clearTimeout(card.copyTimer);
+        card.copyTimer = setTimeout(() => {
           card.classList.remove("copied");
           detail.textContent = valueText;
         }, 1200);
@@ -593,13 +612,11 @@
     }
 
     function download(filename) {
-      setStep("step2", true);
       triggerDownload(new Blob([files[filename]], { type: "text/plain" }), filename);
       flash(`${filename} 다운로드됨`);
     }
 
     function downloadAll() {
-      setStep("step2", true);
       triggerDownload(new Blob([createZip(Object.entries(files))], { type: "application/zip" }), "figma-token-export.zip");
       flash("figma-token-export.zip 다운로드됨");
     }
@@ -660,8 +677,16 @@
       $("selectionErrors").replaceChildren();
       $("navSelection").hidden = true;
       if (view === "selection") view = "tokens";
-      refreshing = true;
-      parent.postMessage({ pluginMessage: { type: "refresh" } }, "*");
+      requestId += 1;
+      if (phase === "error") {
+        phase = "loading";
+        $("error").hidden = true;
+        $("loading").hidden = false;
+      } else {
+        phase = "refreshing";
+        $("refresh").disabled = true;
+      }
+      parent.postMessage({ pluginMessage: { type: "refresh", requestId } }, "*");
     };
     $("retry").onclick = () => $("refresh").onclick();
     $("downloadAll").onclick = () => downloadAll();
@@ -677,15 +702,15 @@
     };
     $("ranCommand").onclick = () => setStep("step2", true);
     $("undoStep2").onclick = () => setStep("step2", false);
+    $("addedWorkflow").onclick = () => setStep("step3", true);
+    $("undoStep3").onclick = () => setStep("step3", false);
     $("copyWorkflow").onclick = () => {
       if (!copyText(workflowYaml)) return setWorkflowStatus("복사하지 못했어요. figma-token.yml을 다운로드해 주세요.", false);
       setWorkflowStatus("복사했어요. .github/workflows/figma-token.yml에 붙여넣으세요.", true);
-      setStep("step3", true);
     };
     $("downloadWorkflow").onclick = () => {
       triggerDownload(new Blob([workflowYaml], { type: "text/yaml" }), "figma-token.yml");
       setWorkflowStatus("figma-token.yml을 받았어요. .github/workflows/에 넣으세요.", true);
-      setStep("step3", true);
     };
     $("joinWaitlist").onclick = () => {
       parent.postMessage({ pluginMessage: { type: "open-waitlist" } }, "*");
@@ -700,11 +725,18 @@
       resizeHandle.onpointerup = (up) => {
         resizeHandle.onpointermove = null;
         resizeHandle.onpointerup = null;
+        resizeHandle.onlostpointercapture = null;
         parent.postMessage({ pluginMessage: sizeAt(up, true) }, "*");
+      };
+      // Capture lost without pointerup (e.g. pointercancel): stop tracking; the last move already resized.
+      resizeHandle.onlostpointercapture = () => {
+        resizeHandle.onpointermove = null;
+        resizeHandle.onpointerup = null;
+        resizeHandle.onlostpointercapture = null;
       };
     });
     renderProgress(false);
-    parent.postMessage({ pluginMessage: { type: "ui-ready" } }, "*");
+    parent.postMessage({ pluginMessage: { type: "ui-ready", requestId } }, "*");
   </script>
 </body>
 </html>
