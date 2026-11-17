@@ -26,7 +26,7 @@ type UiMessage =
   | { type: "open-waitlist" }
   | { type: "save-baseline"; tokens: string };
 
-// Plugin → UI: "selection-changed" asks the UI to request a fresh selection analysis (it debounces).
+// Plugin → UI: "manifest-none" means nothing analyzable is selected. "selection-changed" asks the UI to request a fresh selection analysis (it debounces).
 figma.on("selectionchange", () => figma.ui.postMessage({ type: "selection-changed" }));
 
 figma.ui.onmessage = (message: UiMessage) => {
@@ -129,6 +129,7 @@ async function sendSelectionManifests(requestId?: number) {
   if (selectedComponentSets.length) tasks.push(sendComponentManifests("componentSets", selectedComponentSets, requestId).catch((error: unknown) => sendManifestError("component set", error, requestId)));
   if (selectedFrames.length) tasks.push(sendFrameManifests(selectedFrames, requestId).catch((error: unknown) => sendManifestError("frame", error, requestId)));
 
+  if (!tasks.length) figma.ui.postMessage({ type: "manifest-none", requestId, selected: figma.currentPage.selection.length });
   await Promise.all(tasks);
 }
 
