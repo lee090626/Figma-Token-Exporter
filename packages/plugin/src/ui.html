@@ -156,6 +156,7 @@
     .toast { position: absolute; left: 50%; bottom: 16px; z-index: 6; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; color: var(--toast-text); background: var(--toast-bg); font-weight: 500; box-shadow: 0 8px 22px rgba(26, 24, 20, 0.25); transform: translateX(-50%); white-space: nowrap; }
     .toast .blob { width: 18px; height: 17px; background: var(--green); animation-delay: .12s; }
     .resize-handle { position: fixed; right: 0; bottom: 0; z-index: 7; width: 14px; height: 14px; color: var(--text-2); cursor: nwse-resize; touch-action: none; }
+    .resize-handle.top-left { top: 0; left: 0; right: auto; bottom: auto; }
 
     @media (max-width: 600px) {
       body { flex-direction: column; }
@@ -385,6 +386,7 @@
 
   <div id="toast" class="toast mal-pop" role="status" hidden><span class="blob happy mal-hop" aria-hidden="true"></span><span id="toastText"></span></div>
   <svg id="resizeHandle" class="resize-handle" viewBox="0 0 14 14" aria-hidden="true"><path d="M13 5L5 13M13 9L9 13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+  <svg id="resizeHandleTopLeft" class="resize-handle top-left" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 9L9 1M1 5L5 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
 
   <script>
     let files;
@@ -1001,10 +1003,11 @@
       parent.postMessage({ pluginMessage: { type: "open-waitlist" } }, "*");
       flash("브라우저에서 대기 명단을 열었어요");
     };
-    const resizeHandle = $("resizeHandle");
-    resizeHandle.addEventListener("pointerdown", (event) => {
+    for (const [resizeHandle, sign, corner] of [[$("resizeHandle"), 1, undefined], [$("resizeHandleTopLeft"), -1, "top-left"]]) resizeHandle.addEventListener("pointerdown", (event) => {
       const start = { x: event.screenX, y: event.screenY, width: innerWidth, height: innerHeight };
-      const sizeAt = (move, done) => ({ type: "user-resize", width: start.width + move.screenX - start.x, height: start.height + move.screenY - start.y, done });
+      const from = { width: start.width, height: start.height };
+      // Top-left grows as the pointer moves up/left (sign -1); the plugin moves the window to keep the bottom-right corner fixed.
+      const sizeAt = (move, done) => ({ type: "user-resize", width: start.width + sign * (move.screenX - start.x), height: start.height + sign * (move.screenY - start.y), done, corner, from });
       resizeHandle.setPointerCapture(event.pointerId);
       resizeHandle.onpointermove = (move) => parent.postMessage({ pluginMessage: sizeAt(move, false) }, "*");
       resizeHandle.onpointerup = (up) => {

@@ -22,7 +22,7 @@ type UiMessage =
   | { type: "refresh"; requestId?: number }
   | { type: "read-selection"; requestId?: number }
   | { type: "read-components"; requestId?: number }
-  | { type: "user-resize"; width: number; height: number; done: boolean }
+  | { type: "user-resize"; width: number; height: number; done: boolean; corner?: "top-left"; from?: { width: number; height: number } }
   | { type: "save-progress"; progress?: { step2?: boolean; step3?: boolean } }
   | { type: "open-waitlist" }
   | { type: "save-baseline"; tokens: string; explicit?: boolean };
@@ -32,11 +32,21 @@ type UiMessage =
 figma.on("selectionchange", () => figma.ui.postMessage({ type: "selection-changed" }));
 figma.on("currentpagechange", () => figma.ui.postMessage({ type: "page-changed" }));
 
+let topLeftOrigin: { x: number; y: number; width: number; height: number } | null = null;
+
 figma.ui.onmessage = (message: UiMessage) => {
   if (message.type === "user-resize") {
     const size = { width: clamp(message.width, 480, 1600), height: clamp(message.height, 320, 1200) };
     figma.ui.resize(size.width, size.height);
-    if (message.done) figma.clientStorage.setAsync(UI_SIZE_KEY, size).catch(() => undefined);
+    // Top-left drag: keep the bottom-right corner where it was by moving the window as it grows.
+    if (message.corner === "top-left" && message.from) {
+      topLeftOrigin ??= { ...figma.ui.getPosition().windowSpace, ...message.from };
+      figma.ui.reposition(topLeftOrigin.x + topLeftOrigin.width - size.width, topLeftOrigin.y + topLeftOrigin.height - size.height);
+    }
+    if (message.done) {
+      topLeftOrigin = null;
+      figma.clientStorage.setAsync(UI_SIZE_KEY, size).catch(() => undefined);
+    }
     return;
   }
   if (message.type === "open-waitlist") {
