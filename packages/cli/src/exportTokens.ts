@@ -1,3 +1,4 @@
+import type { Stats } from "node:fs";
 import { mkdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
@@ -8,6 +9,7 @@ import {
   renderTailwindTheme,
   renderTheme,
   renderTokensJson,
+  upgradeLegacyTokens,
   type DesignToken
 } from "@lee090626/core";
 import { writeFilesAtomically } from "./writeFiles.js";
@@ -40,7 +42,7 @@ const resolveOutputDirectory = (output?: string): string => resolve(output ?? de
 
 async function readPluginTokens(input: string): Promise<{ inputPath: string; tokens: DesignToken[] }> {
   const inputPath = resolve(input);
-  let inputStat;
+  let inputStat: Stats;
   try {
     inputStat = await stat(inputPath);
   } catch (error) {
@@ -56,8 +58,10 @@ async function readPluginTokens(input: string): Promise<{ inputPath: string; tok
     if (error instanceof SyntaxError) throw new Error(`Invalid JSON: ${inputPath}`);
     throw new Error(`Cannot read input file: ${inputPath}`);
   }
-  if (!isDesignTokenArray(raw)) throw new Error(`Unsupported input: expected Plugin tokens.json: ${inputPath}`);
-  return { inputPath, tokens: raw };
+  if (isDesignTokenArray(raw)) return { inputPath, tokens: raw };
+  const legacy = upgradeLegacyTokens(raw);
+  if (!legacy) throw new Error(`Unsupported input: expected Plugin tokens.json: ${inputPath}`);
+  return { inputPath, tokens: legacy };
 }
 
 function renderTokenFiles(tokens: DesignToken[]): TokenFiles {
@@ -98,7 +102,7 @@ export async function exportTokenFiles(options: ExportTokensOptions, log = conso
     log(`Input: ${result.inputPath}`);
     log(`Output: ${result.outputPath}`);
     log("Would generate:");
-    tokenFileNames.forEach((filename) => log(`- ${filename}`));
+    for (const filename of tokenFileNames) log(`- ${filename}`);
     return result;
   }
   await writeTokenFiles(result.outputPath, result.files);
@@ -128,6 +132,6 @@ export async function checkTokenFiles(options: Omit<ExportTokensOptions, "dryRun
     return 0;
   }
   log("Token files are not up to date:");
-  outdated.forEach((message) => log(message));
+  for (const message of outdated) log(message);
   return 1;
 }

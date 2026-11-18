@@ -81,9 +81,11 @@ function aliasSkippedMessage(name: string, reason: "alias-target-missing" | "ali
 }
 
 async function readCurrentTokens(options: SyncOptions, warn: (message: string) => void): Promise<DesignToken[]> {
-  const source = options.input
-    ? await readJson(options.input)
-    : await fetchFigmaVariables(options.fileKey!, options.figmaToken!);
+  const { input, fileKey, figmaToken } = options;
+  let source: unknown;
+  if (input) source = await readJson(input);
+  else if (fileKey && figmaToken) source = await fetchFigmaVariables(fileKey, figmaToken);
+  else throw new Error("--input 또는 FIGMA_TOKEN과 FIGMA_FILE_KEY가 필요합니다.");
 
   if (isDesignTokenArray(source)) return source;
 
@@ -98,7 +100,7 @@ function logDiffSummary(tokens: DesignToken[], snapshot: DesignToken[], log: (me
   for (const type of changeTypes) {
     log(`${type[0].toUpperCase()}${type.slice(1)}: ${diffs.filter((diff) => diff.type === type).length}`);
   }
-  diffs.forEach((diff) => log(`${diff.type} ${diff.token.path.join("/")}`));
+  for (const diff of diffs) log(`${diff.type} ${diff.token.path.join("/")}`);
 }
 
 async function readOutput(path: string): Promise<string | undefined> {
@@ -120,7 +122,7 @@ async function writeStepSummary(status: string, fix: string | undefined, diffs: 
   await appendFile(path, lines.join("\n"));
 }
 
-export async function sync(options: SyncOptions, log = console.log, warn = console.warn): Promise<0 | 1 | void> {
+export async function sync(options: SyncOptions, log = console.log, warn = console.warn): Promise<0 | 1 | undefined> {
   if (options.check && options.dryRun) throw new Error("--check와 --dry-run은 함께 사용할 수 없습니다. 하나만 사용하세요.");
   if (!options.input && (!options.figmaToken || !options.fileKey)) throw new Error("--input 또는 FIGMA_TOKEN과 FIGMA_FILE_KEY가 필요합니다.");
   const current = await readCurrentTokens(options, warn);

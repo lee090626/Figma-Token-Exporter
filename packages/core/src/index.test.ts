@@ -11,6 +11,7 @@ import {
   renderTailwindTheme,
   renderTheme,
   renderTokensJson,
+  upgradeLegacyTokens,
   generateVariableName,
   type DesignToken
 } from "./index.js";
@@ -633,7 +634,33 @@ describe("core", () => {
     const token: DesignToken = { name: "__proto__/polluted", path: ["__proto__", "polluted"], type: "spacing", value: 1 };
     const output = JSON.parse(renderDtcgJson([token]));
 
-    expect(output.__proto__.polluted).toEqual({ $type: "dimension", $value: { value: 1, unit: "px" } });
+    expect(Object.getOwnPropertyDescriptor(output, "__proto__")?.value.polluted).toEqual({ $type: "dimension", $value: { value: 1, unit: "px" } });
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+});
+
+describe("upgradeLegacyTokens", () => {
+  it("converts hex colors and classifies number tokens by name or collection, keeping the first mode per collection", () => {
+    expect(upgradeLegacyTokens([
+      { name: "Background/default", path: ["Background", "default"], type: "color", value: "#191a1a", collection: "Color Palette", mode: "Dark" },
+      { name: "Background/default", path: ["Background", "default"], type: "color", value: "#ffffff", collection: "Color Palette", mode: "White" },
+      { name: "Overlay", path: ["Overlay"], type: "color", value: "#00000033" },
+      { name: "ExtraLarge - 28", path: ["ExtraLarge - 28"], type: "number", value: 28, collection: "Shape" },
+      { name: "spacing/base", path: ["spacing", "base"], type: "number", value: 8 },
+      { name: "opacity/half", path: ["opacity", "half"], type: "opacity", value: 0.5 }
+    ])).toEqual([
+      { name: "Background/default", path: ["Background", "default"], type: "color", value: { r: 25, g: 26, b: 26, a: 1 }, collection: "Color Palette", mode: "Dark" },
+      { name: "Overlay", path: ["Overlay"], type: "color", value: { r: 0, g: 0, b: 0, a: 0.2 } },
+      { name: "ExtraLarge - 28", path: ["ExtraLarge - 28"], type: "radius", value: 28, collection: "Shape" },
+      { name: "spacing/base", path: ["spacing", "base"], type: "spacing", value: 8 },
+      { name: "opacity/half", path: ["opacity", "half"], type: "opacity", value: 0.5 }
+    ]);
+  });
+
+  it("rejects unknown shapes and unclassifiable numbers", () => {
+    expect(upgradeLegacyTokens({})).toBeUndefined();
+    expect(upgradeLegacyTokens([{ name: "x", path: ["x"], type: "color", value: "red" }])).toBeUndefined();
+    expect(() => upgradeLegacyTokens([{ name: "Misc", path: ["Misc"], type: "number", value: 3 }]))
+      .toThrow("Cannot classify legacy number token: Misc");
   });
 });

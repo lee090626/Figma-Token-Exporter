@@ -22,7 +22,7 @@ function defaultInputError(error: unknown, usesDefaultInput: boolean): never {
   throw error;
 }
 
-export async function runDefaultWorkflow(input: string | undefined, options: DefaultWorkflowOptions): Promise<0 | 1 | void> {
+export async function runDefaultWorkflow(input: string | undefined, options: DefaultWorkflowOptions): Promise<0 | 1 | undefined> {
   if (options.check && options.dryRun) {
     throw new Error("--check와 --dry-run은 함께 사용할 수 없습니다. 하나만 사용하세요.");
   }
