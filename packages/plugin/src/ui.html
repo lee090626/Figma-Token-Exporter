@@ -4,19 +4,19 @@
   <meta charset="utf-8">
   <style>
     :root {
-      --bg: #faf6ee; --panel: #f3ede2; --card: #ffffff; --line: #e8e0d2;
-      --text: #1a1814; --text-2: #6b6458; --btn: #1a1814; --btn-text: #faf6ee; --nav-active: #e8e0d2;
+      --bg: #fff7f2; --panel: #ffefe9; --card: #ffffff; --line: #ffd9d4;
+      --text: #3a2a2a; --text-2: #87696a; --btn: #d1385a; --btn-text: #ffffff; --nav-active: #ffe1dc;
       --green: #20b35e; --green-text: #137a3e; --warn: #8a6200; --warn-line: #ebc75a; --warn-bg: #fff5d6;
-      --danger: #c42a20; --danger-soft: #fdece8; --soon-text: #7a5600; --soon-bg: #ffedb0; --gray-blob: #cfc8bb;
-      --toast-bg: #1a1814; --toast-text: #faf6ee;
+      --danger: #c42a20; --danger-soft: #fdece8; --soon-text: #7a5600; --soon-bg: #ffedb0; --gray-blob: #ffc4cc;
+      --toast-bg: #3a2a2a; --toast-text: #fff7f2;
       --blob-shade: inset 0 2px 2px rgba(255, 255, 255, 0.45), inset 0 -2px 3px rgba(0, 0, 0, 0.16), 0 1px 2px rgba(26, 24, 20, 0.2);
     }
     html.figma-dark {
-      --bg: #17150f; --panel: #1e1b15; --card: #24211a; --line: #34302a;
-      --text: #f3eee4; --text-2: #a39c8e; --btn: #f3eee4; --btn-text: #17150f; --nav-active: #34302a;
+      --bg: #1f1719; --panel: #261c1f; --card: #2e2225; --line: #45333a;
+      --text: #fbeef0; --text-2: #c4a9ad; --btn: #ff8fa0; --btn-text: #2a1619; --nav-active: #45303a;
       --green: #3fd47f; --green-text: #4fdb8c; --warn: #ffc21a; --warn-line: rgba(255, 194, 26, 0.5); --warn-bg: rgba(255, 194, 26, 0.09);
-      --danger: #ff8a7a; --danger-soft: rgba(255, 107, 90, 0.12); --soon-text: #ffd45c; --soon-bg: rgba(255, 194, 26, 0.14); --gray-blob: #b9b1a3;
-      --toast-bg: #f3eee4; --toast-text: #17150f;
+      --danger: #ff8a7a; --danger-soft: rgba(255, 107, 90, 0.12); --soon-text: #ffd45c; --soon-bg: rgba(255, 194, 26, 0.14); --gray-blob: #e7a9b3;
+      --toast-bg: #fbeef0; --toast-text: #1f1719;
     }
     * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: rgba(163, 156, 142, 0.55) transparent; }
     html, body { height: 100%; }
@@ -87,6 +87,7 @@
     .menu button { justify-content: flex-start; width: 100%; border: 0; background: transparent; }
     .board { display: grid; flex: 1; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); align-content: start; align-items: stretch; gap: 16px 8px; min-height: 120px; padding: 12px; overflow: auto; border: 1px solid var(--line); border-radius: 18px; }
     .column { min-width: 0; }
+    #componentsBoard { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
     .column-head { position: sticky; top: -12px; z-index: 1; background: var(--bg); display: flex; align-items: center; gap: 6px; padding: 12px 2px 8px; margin: -12px 0 8px; border-bottom: 1px solid var(--line); font-weight: 600; }
     .column-head .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
@@ -142,6 +143,7 @@
     details.help details p { margin-top: 6px; color: var(--text-2); }
 
     /* Selection & Team */
+    .topbar-actions { display: flex; gap: 6px; }
     .downloads { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
     .downloads button { justify-content: flex-start; height: 42px; border-radius: 14px; }
     .team { align-items: center; justify-content: center; gap: 18px; }
@@ -154,6 +156,7 @@
     .toast { position: absolute; left: 50%; bottom: 16px; z-index: 6; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; color: var(--toast-text); background: var(--toast-bg); font-weight: 500; box-shadow: 0 8px 22px rgba(26, 24, 20, 0.25); transform: translateX(-50%); white-space: nowrap; }
     .toast .blob { width: 18px; height: 17px; background: var(--green); animation-delay: .12s; }
     .resize-handle { position: fixed; right: 0; bottom: 0; z-index: 7; width: 14px; height: 14px; color: var(--text-2); cursor: nwse-resize; touch-action: none; }
+    .resize-handle.top-left { top: 0; left: 0; right: auto; bottom: auto; }
 
     @media (max-width: 600px) {
       body { flex-direction: column; }
@@ -167,6 +170,7 @@
   <nav class="nav" aria-label="플러그인 메뉴">
     <div class="brand hide-sm"><span class="logo"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4L1.5 8 5 12M11 4l3.5 4-3.5 4"/></svg></span>Token Exporter</div>
     <button type="button" data-view="tokens" aria-current="page"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="2"/><rect x="9" y="2" width="5" height="5" rx="2"/><rect x="2" y="9" width="5" height="5" rx="2"/><rect x="9" y="9" width="5" height="5" rx="2"/></svg>Tokens<span id="navCount" class="end mono">–</span></button>
+    <button type="button" data-view="components"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 1.5L11 4.5 8 7.5 5 4.5zM8 8.5L11 11.5 8 14.5 5 11.5zM4 5L7 8 4 11 1 8zM12 5L15 8 12 11 9 8z"/></svg>Components<span id="componentsCount" class="end mono"></span></button>
     <button type="button" data-view="check"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8l6.5 11.7H1.5z"/><path d="M8 6.5v3M8 11.6v.1"/></svg>점검<span id="checkCount" class="end mono"></span></button>
     <button type="button" data-view="changes"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 109.6-3.6M12.5 2v2.8H9.7"/><path d="M8 5v3l2 1.5"/></svg>변경 내역<span id="changesCount" class="end mono"></span></button>
     <button type="button" data-view="connect"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 014.5 9l1-1"/></svg>Connect<span class="end"><span id="doneCount" class="mono">1/3</span><span id="navBlob" class="blob" aria-hidden="true"></span></span></button>
@@ -330,14 +334,28 @@
       </div>
     </section>
 
+    <section id="view-components" class="view" hidden>
+      <header class="topbar"><h1>Components</h1><span class="spacer"></span><div id="componentsDownloads" class="topbar-actions"></div></header>
+      <div class="body">
+        <p class="muted">현재 페이지의 Component와 Component Set을 선택 없이 자동으로 분석합니다.</p>
+        <div id="componentsEmpty" class="state" role="status">
+          <span class="blob sleepy" style="width: 56px; height: 50px" aria-hidden="true"></span>
+          <strong id="componentsEmptyTitle">컴포넌트를 분석하고 있어요</strong>
+          <p id="componentsEmptyText">잠시만 기다려 주세요.</p>
+        </div>
+        <section id="componentsBoard" class="board" aria-label="컴포넌트 보드" hidden></section>
+        <div id="componentsErrors" class="downloads"></div>
+      </div>
+    </section>
+
     <section id="view-selection" class="view" hidden>
       <header class="topbar"><h1>선택 분석</h1></header>
       <div class="body">
-        <p class="muted">선택한 Frame, Component, Component Set별 결과입니다.</p>
+        <p class="muted">선택한 Frame별 결과입니다.</p>
         <div id="selectionEmpty" class="state">
           <span class="blob sleepy" style="width: 56px; height: 50px" aria-hidden="true"></span>
           <strong id="selectionEmptyTitle">선택한 항목이 없어요</strong>
-          <p id="selectionEmptyText">캔버스에서 Frame, Component, Component Set을 선택하면 쓰인 토큰을 바로 분석해 드려요.</p>
+          <p id="selectionEmptyText">캔버스에서 Frame을 선택하면 쓰인 토큰을 바로 분석해 드려요.</p>
         </div>
         <div id="selectionManifestDownloads" class="downloads"></div>
         <div id="selectionErrors" class="downloads"></div>
@@ -368,6 +386,7 @@
 
   <div id="toast" class="toast mal-pop" role="status" hidden><span class="blob happy mal-hop" aria-hidden="true"></span><span id="toastText"></span></div>
   <svg id="resizeHandle" class="resize-handle" viewBox="0 0 14 14" aria-hidden="true"><path d="M13 5L5 13M13 9L9 13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+  <svg id="resizeHandleTopLeft" class="resize-handle top-left" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 9L9 1M1 5L5 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
 
   <script>
     let files;
@@ -375,9 +394,10 @@
     // phase: loading → ready ⇄ refreshing; any → error; error → loading (retry). Only setPhase() changes it.
     // Replies with an old requestId are dropped.
     let phase = "loading";
-    // requestId guards exports/error replies; selectionId guards manifest replies. Both come from one counter.
+    // requestId guards exports/error replies; selectionId guards manifest replies; componentsId guards page-components replies. All come from one counter.
     let requestId = 0;
     let selectionId = 0;
+    let componentsId = 0;
     let lastId = 0;
     let selectionTimer;
     let progressTouched = false;
@@ -417,9 +437,12 @@
 
     function handlePluginMessage(message) {
       if (message.type === "selection-changed") return readSelectionSoon();
+      if (message.type === "page-changed") return readComponents();
       if (message.type === "baseline-saved") return baselineSaved(message);
       const isManifest = message.type === "manifest" || message.type === "manifest-error" || message.type === "manifest-none";
-      if (message.type !== "progress" && message.requestId !== (isManifest ? selectionId : requestId)) return;
+      const isComponents = message.type === "page-components" || message.type === "page-components-error";
+      if (message.type !== "progress" && message.requestId !== (isManifest ? selectionId : isComponents ? componentsId : requestId)) return;
+      if (isComponents) return showPageComponents(message);
       if (message.type === "error") return showExportError(message.message);
       if (message.type === "progress") return applyProgress(message.progress);
       if (message.type === "manifest-none") return setSelectionEmpty(message.selected ? "unsupported" : "none");
@@ -433,7 +456,7 @@
       $("formatsMenu").hidden = true;
       $("formatsToggle").setAttribute("aria-expanded", "false");
       if (phase !== "ready" && phase !== "refreshing") return;
-      for (const name of ["tokens", "check", "changes", "connect", "selection", "team"]) $(`view-${name}`).hidden = name !== view;
+      for (const name of ["tokens", "components", "check", "changes", "connect", "selection", "team"]) $(`view-${name}`).hidden = name !== view;
     }
 
     // Owns the phase-level chrome; show() reveals the current view once phase is ready/refreshing.
@@ -556,6 +579,12 @@
       label.textContent = name.includes("/") ? name.slice(name.indexOf("/") + 1) : name;
       detail.className = "value";
       detail.textContent = valueText;
+      copyNameOnClick(card, detail, name, valueText);
+      card.append(mark, label, detail);
+      return card;
+    }
+
+    function copyNameOnClick(card, detail, name, valueText) {
       card.onclick = () => {
         if (!copyText(name)) return flash("복사하지 못했어요");
         card.classList.add("copied");
@@ -566,6 +595,67 @@
           detail.textContent = valueText;
         }, 1200);
       };
+    }
+
+    const componentKinds = {
+      components: { label: "Component", dot: "#c58cff", mood: "happy" },
+      componentSets: { label: "Component Set", dot: "#6ba8ff", mood: "" }
+    };
+
+    function showComponentsBoard(manifests) {
+      const columns = manifests.map((manifest) => {
+        const kind = componentKinds[manifest.kind];
+        let items = [];
+        try {
+          items = JSON.parse(manifest.file)[manifest.kind] || [];
+        } catch {
+          items = [];
+        }
+        const column = document.createElement("div");
+        const head = document.createElement("div");
+        const body = document.createElement("div");
+        column.className = "column";
+        head.className = "column-head";
+        head.innerHTML = `<span class="dot" style="background: ${kind.dot}"></span><span class="name"></span><span class="mono muted" style="font-weight: 400"></span>`;
+        head.children[1].textContent = kind.label;
+        head.children[2].textContent = items.length;
+        body.className = "column-body";
+        body.append(...items.map((item, index) => createComponentCard(item, kind, index)));
+        column.append(head, body);
+        return column;
+      });
+      $("componentsBoard").replaceChildren(...columns);
+      $("componentsBoard").hidden = false;
+    }
+
+    function createComponentsDownloadButton(manifest) {
+      const kind = componentKinds[manifest.kind];
+      const button = createDownloadButton("", () => triggerDownload(new Blob([manifest.file], { type: "application/json" }), manifest.filename));
+      button.className = "mono";
+      button.title = `${manifest.count}개 ${kind.label} · ${manifest.variableCount}개 Variable 다운로드`;
+      button.innerHTML = `<span class="dot" style="background: ${kind.dot}"></span>`;
+      button.append(manifest.filename);
+      return button;
+    }
+
+    function createComponentCard({ component, variables }, kind, index) {
+      const card = document.createElement("button");
+      const mark = document.createElement("span");
+      const label = document.createElement("span");
+      const detail = document.createElement("span");
+      const valueText = component.variants.length ? `${component.variants.length} variants` : `${variables.length} vars`;
+      card.type = "button";
+      card.className = "token";
+      card.title = `${component.name} · ${variables.length}개 Variable · 이름 복사`;
+      mark.setAttribute("aria-hidden", "true");
+      mark.className = `blob ${kind.mood}`.trim();
+      mark.style.background = kind.dot;
+      mark.style.borderRadius = blobShapes[index % blobShapes.length];
+      label.className = "label";
+      label.textContent = component.name;
+      detail.className = "value";
+      detail.textContent = valueText;
+      copyNameOnClick(card, detail, component.name, valueText);
       card.append(mark, label, detail);
       return card;
     }
@@ -686,12 +776,53 @@
     function setSelectionEmpty(state) {
       const [title, text] = {
         analyzing: ["선택한 항목을 분석하고 있어요", "잠시만 기다려 주세요."],
-        none: ["선택한 항목이 없어요", "캔버스에서 Frame, Component, Component Set을 선택하면 쓰인 토큰을 바로 분석해 드려요."],
-        unsupported: ["분석할 수 없는 항목이에요", "Frame, Component, Component Set만 분석해요. Text, Group, Instance는 감싸는 Frame을 선택해 주세요."]
+        none: ["선택한 항목이 없어요", "캔버스에서 Frame을 선택하면 쓰인 토큰을 바로 분석해 드려요."],
+        unsupported: ["분석할 수 없는 항목이에요", "Frame만 분석해요. Component와 Component Set은 Components 메뉴에서 자동으로 보여요. Text, Group, Instance는 감싸는 Frame을 선택해 주세요."]
       }[state];
       $("selectionEmptyTitle").textContent = title;
       $("selectionEmptyText").textContent = text;
       $("selectionEmpty").hidden = false;
+    }
+
+    // Components view: analyzing → results | none | error. The plugin sends it on open, refresh and page change.
+    function setComponentsState(state, page) {
+      const [title, text] = {
+        analyzing: ["컴포넌트를 분석하고 있어요", "잠시만 기다려 주세요."],
+        none: ["이 페이지에 컴포넌트가 없어요", `${page ? `"${page}" 페이지에` : "현재 페이지에"} Component나 Component Set이 없어요. 다른 페이지로 이동하면 자동으로 다시 분석해요.`],
+        error: ["컴포넌트를 분석하지 못했어요", "잠시 후 새로고침을 눌러 다시 시도하세요."]
+      }[state];
+      $("componentsBoard").replaceChildren();
+      $("componentsBoard").hidden = true;
+      $("componentsDownloads").replaceChildren();
+      $("componentsErrors").replaceChildren();
+      $("componentsCount").textContent = "";
+      $("componentsEmptyTitle").textContent = title;
+      $("componentsEmptyText").textContent = text;
+      $("componentsEmpty").hidden = false;
+    }
+
+    function readComponents() {
+      componentsId = ++lastId;
+      setComponentsState("analyzing");
+      parent.postMessage({ pluginMessage: { type: "read-components", requestId: componentsId } }, "*");
+    }
+
+    function showPageComponents(message) {
+      if (message.type === "page-components-error") {
+        setComponentsState("error");
+        const error = document.createElement("p");
+        error.className = "error-box";
+        error.setAttribute("role", "alert");
+        error.style.fontFamily = "inherit";
+        error.textContent = friendlyManifestError("component", message.message);
+        $("componentsErrors").append(error);
+        return;
+      }
+      if (!message.manifests.length) return setComponentsState("none", message.page);
+      $("componentsEmpty").hidden = true;
+      $("componentsDownloads").replaceChildren(...message.manifests.map(createComponentsDownloadButton));
+      showComponentsBoard(message.manifests);
+      $("componentsCount").textContent = String(message.manifests.reduce((count, manifest) => count + manifest.count, 0));
     }
 
     function readSelectionSoon() {
@@ -837,6 +968,8 @@
       clearSelection();
       requestId = ++lastId;
       selectionId = requestId;
+      componentsId = requestId;
+      setComponentsState("analyzing");
       setPhase(phase === "error" ? "loading" : "refreshing");
       parent.postMessage({ pluginMessage: { type: "refresh", requestId } }, "*");
     };
@@ -870,10 +1003,11 @@
       parent.postMessage({ pluginMessage: { type: "open-waitlist" } }, "*");
       flash("브라우저에서 대기 명단을 열었어요");
     };
-    const resizeHandle = $("resizeHandle");
-    resizeHandle.addEventListener("pointerdown", (event) => {
+    for (const [resizeHandle, sign, corner] of [[$("resizeHandle"), 1, undefined], [$("resizeHandleTopLeft"), -1, "top-left"]]) resizeHandle.addEventListener("pointerdown", (event) => {
       const start = { x: event.screenX, y: event.screenY, width: innerWidth, height: innerHeight };
-      const sizeAt = (move, done) => ({ type: "user-resize", width: start.width + move.screenX - start.x, height: start.height + move.screenY - start.y, done });
+      const from = { width: start.width, height: start.height };
+      // Top-left grows as the pointer moves up/left (sign -1); the plugin moves the window to keep the bottom-right corner fixed.
+      const sizeAt = (move, done) => ({ type: "user-resize", width: start.width + sign * (move.screenX - start.x), height: start.height + sign * (move.screenY - start.y), done, corner, from });
       resizeHandle.setPointerCapture(event.pointerId);
       resizeHandle.onpointermove = (move) => parent.postMessage({ pluginMessage: sizeAt(move, false) }, "*");
       resizeHandle.onpointerup = (up) => {

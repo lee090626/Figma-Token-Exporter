@@ -119,3 +119,69 @@ describe("plugin UI", () => {
     expect(ui.$("selectionEmptyTitle").textContent).toBe("선택한 항목이 없어요");
   });
 });
+
+describe("components view", () => {
+  const manifest = {
+    kind: "componentSets",
+    filename: "component-sets.json",
+    file: JSON.stringify({ componentSets: [
+      { component: { name: "Button", variants: [{}, {}, {}, {}] }, variables: ["a", "b", "c"] },
+      { component: { name: "Alert", variants: [{}, {}, {}] }, variables: ["d", "e"] }
+    ] }),
+    count: 2,
+    variableCount: 5
+  };
+
+  it("shows page components on open without a selection", () => {
+    const ui = openUi();
+    expect(ui.$("componentsEmptyTitle").textContent).toBe("컴포넌트를 분석하고 있어요");
+    ui.receive({ type: "page-components", requestId: ui.lastSent("ui-ready")?.requestId, page: "Page 1", manifests: [manifest] });
+
+    expect(ui.$("componentsEmpty").hidden).toBe(true);
+    expect(ui.$("componentsDownloads").textContent).toBe("component-sets.json");
+    expect(ui.$("componentsDownloads").querySelector("button")?.title).toBe("2개 Component Set · 5개 Variable 다운로드");
+    expect(ui.$("componentsCount").textContent).toBe("2");
+    expect(ui.$("componentsBoard").hidden).toBe(false);
+    expect([...ui.$("componentsBoard").querySelectorAll(".token")].map((card) => card.textContent)).toEqual(["Button4 variants", "Alert3 variants"]);
+    expect(ui.$("componentsBoard").querySelector(".column-head")?.textContent).toBe("Component Set2");
+  });
+
+  it("re-reads on page change and shows the empty and error states", () => {
+    const ui = openUi();
+    ui.receive({ type: "page-changed" });
+    const read = ui.lastSent("read-components");
+    expect(read?.requestId).toBeGreaterThan(0);
+
+    ui.receive({ type: "page-components", requestId: read?.requestId, page: "Icons", manifests: [] });
+    expect(ui.$("componentsEmptyTitle").textContent).toBe("이 페이지에 컴포넌트가 없어요");
+    expect(ui.$("componentsBoard").hidden).toBe(true);
+    expect(ui.$("componentsEmptyText").textContent).toContain("\"Icons\" 페이지에");
+
+    ui.receive({ type: "page-components-error", requestId: read?.requestId, message: "boom" });
+    expect(ui.$("componentsEmptyTitle").textContent).toBe("컴포넌트를 분석하지 못했어요");
+    expect(ui.$("componentsErrors").textContent).toContain("컴포넌트 분석 결과를 만들지 못했습니다");
+  });
+
+  it("ignores components replies for an older page", () => {
+    const ui = openUi();
+    const stale = ui.lastSent("ui-ready")?.requestId;
+    ui.receive({ type: "page-changed" });
+    ui.receive({ type: "page-components", requestId: stale, page: "Old", manifests: [manifest] });
+    expect(ui.$("componentsDownloads").children.length).toBe(0);
+  });
+});
+
+describe("resize handles", () => {
+  it("top-left handle grows the window as the pointer moves up and left", () => {
+    const ui = openUi();
+    const handle = ui.$("resizeHandleTopLeft") as unknown as HTMLElement & { setPointerCapture: () => void };
+    handle.setPointerCapture = () => undefined;
+    const pointer = (type: string, screenX: number, screenY: number) =>
+      handle.dispatchEvent(new ui.window.MouseEvent(type, { screenX, screenY, bubbles: true }));
+    const { innerWidth: width, innerHeight: height } = ui.window;
+
+    pointer("pointerdown", 500, 500);
+    (handle as unknown as { onpointermove: (event: MouseEvent) => void }).onpointermove(new ui.window.MouseEvent("pointermove", { screenX: 450, screenY: 470 }));
+    expect(ui.lastSent("user-resize")).toEqual({ type: "user-resize", width: width + 50, height: height + 30, done: false, corner: "top-left", from: { width, height } });
+  });
+});

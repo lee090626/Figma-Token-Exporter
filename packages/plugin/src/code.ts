@@ -21,19 +21,32 @@ type UiMessage =
   | { type: "ui-ready"; requestId?: number }
   | { type: "refresh"; requestId?: number }
   | { type: "read-selection"; requestId?: number }
-  | { type: "user-resize"; width: number; height: number; done: boolean }
+  | { type: "read-components"; requestId?: number }
+  | { type: "user-resize"; width: number; height: number; done: boolean; corner?: "top-left"; from?: { width: number; height: number } }
   | { type: "save-progress"; progress?: { step2?: boolean; step3?: boolean } }
   | { type: "open-waitlist" }
   | { type: "save-baseline"; tokens: string; explicit?: boolean };
 
-// Plugin → UI: "manifest-none" means nothing analyzable is selected. "selection-changed" asks the UI to request a fresh selection analysis (it debounces).
+// Plugin → UI: "manifest-none" means no Frame is selected. "selection-changed" asks the UI to request a fresh selection analysis (it debounces).
+// "page-changed" asks the UI to re-read the page's components.
 figma.on("selectionchange", () => figma.ui.postMessage({ type: "selection-changed" }));
+figma.on("currentpagechange", () => figma.ui.postMessage({ type: "page-changed" }));
+
+let topLeftOrigin: { x: number; y: number; width: number; height: number } | null = null;
 
 figma.ui.onmessage = (message: UiMessage) => {
   if (message.type === "user-resize") {
     const size = { width: clamp(message.width, 480, 1600), height: clamp(message.height, 320, 1200) };
     figma.ui.resize(size.width, size.height);
-    if (message.done) figma.clientStorage.setAsync(UI_SIZE_KEY, size).catch(() => undefined);
+    // Top-left drag: keep the bottom-right corner where it was by moving the window as it grows.
+    if (message.corner === "top-left" && message.from) {
+      topLeftOrigin ??= { ...figma.ui.getPosition().windowSpace, ...message.from };
+      figma.ui.reposition(topLeftOrigin.x + topLeftOrigin.width - size.width, topLeftOrigin.y + topLeftOrigin.height - size.height);
+    }
+    if (message.done) {
+      topLeftOrigin = null;
+      figma.clientStorage.setAsync(UI_SIZE_KEY, size).catch(() => undefined);
+    }
     return;
   }
   if (message.type === "open-waitlist") {
@@ -47,6 +60,7 @@ figma.ui.onmessage = (message: UiMessage) => {
   if (message.type === "refresh") {
     sendVariables(message.requestId).catch((error: unknown) => sendExportError(error, message.requestId));
     sendSelectionManifests(message.requestId);
+    sendPageComponents(message.requestId);
     return;
   }
   if (message.type === "save-baseline") {
@@ -57,6 +71,10 @@ figma.ui.onmessage = (message: UiMessage) => {
     sendSelectionManifests(message.requestId);
     return;
   }
+  if (message.type === "read-components") {
+    sendPageComponents(message.requestId);
+    return;
+  }
   if (message.type !== "ui-ready") return;
 
   figma.clientStorage.getAsync(PROGRESS_KEY)
@@ -64,6 +82,7 @@ figma.ui.onmessage = (message: UiMessage) => {
     .catch(() => undefined);
   sendVariables(message.requestId).catch((error: unknown) => sendExportError(error, message.requestId));
   sendSelectionManifests(message.requestId);
+  sendPageComponents(message.requestId);
 };
 
 function readBaseline(): { tokens: DesignToken[]; savedAt: number } | null {
@@ -120,17 +139,27 @@ async function sendVariables(requestId?: number) {
 }
 
 async function sendSelectionManifests(requestId?: number) {
-  const selectedComponents = figma.currentPage.selection.filter((node): node is ComponentNode => node.type === "COMPONENT");
-  const selectedComponentSets = figma.currentPage.selection.filter((node): node is ComponentSetNode => node.type === "COMPONENT_SET");
   const selectedFrames = figma.currentPage.selection.filter((node): node is FrameNode => node.type === "FRAME");
-  const tasks: Promise<void>[] = [];
+  if (!selectedFrames.length) {
+    figma.ui.postMessage({ type: "manifest-none", requestId, selected: figma.currentPage.selection.length });
+    return;
+  }
+  await sendFrameManifests(selectedFrames, requestId).catch((error: unknown) => sendManifestError("frame", error, requestId));
+}
 
-  if (selectedComponents.length) tasks.push(sendComponentManifests("components", selectedComponents, requestId).catch((error: unknown) => sendManifestError("component", error, requestId)));
-  if (selectedComponentSets.length) tasks.push(sendComponentManifests("componentSets", selectedComponentSets, requestId).catch((error: unknown) => sendManifestError("component set", error, requestId)));
-  if (selectedFrames.length) tasks.push(sendFrameManifests(selectedFrames, requestId).catch((error: unknown) => sendManifestError("frame", error, requestId)));
-
-  if (!tasks.length) figma.ui.postMessage({ type: "manifest-none", requestId, selected: figma.currentPage.selection.length });
-  await Promise.all(tasks);
+// Components and component sets on the current page, read without a selection. Variants are covered by their set.
+async function sendPageComponents(requestId?: number) {
+  try {
+    const nodes = figma.currentPage.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] })
+      .filter((node) => node.parent?.type !== "COMPONENT_SET");
+    const manifests = await Promise.all([
+      componentManifestFile("components", nodes.filter((node): node is ComponentNode => node.type === "COMPONENT")),
+      componentManifestFile("componentSets", nodes.filter((node): node is ComponentSetNode => node.type === "COMPONENT_SET"))
+    ]);
+    figma.ui.postMessage({ type: "page-components", requestId, page: figma.currentPage.name, manifests: manifests.filter(Boolean) });
+  } catch (error) {
+    figma.ui.postMessage({ type: "page-components-error", requestId, message: errorMessage(error) });
+  }
 }
 
 async function variableNamesById(ids: Iterable<string>) {
@@ -162,20 +191,16 @@ function formatVariableName(variable: Variable, collectionName?: string) {
   return collectionName ? `${collectionName} / ${variable.name}` : variable.name;
 }
 
-async function sendComponentManifests(kind: "components" | "componentSets", components: Array<ComponentNode | ComponentSetNode>, requestId?: number) {
+async function componentManifestFile(kind: "components" | "componentSets", components: Array<ComponentNode | ComponentSetNode>) {
+  if (!components.length) return null;
   const manifests = await Promise.all(components.map(createComponentManifestFor));
-  const key = kind === "components" ? "components" : "componentSets";
-  const variableCount = new Set(manifests.flatMap((manifest) => manifest.variables)).size;
-
-  figma.ui.postMessage({
-    type: "manifest",
-    requestId,
+  return {
     kind,
     filename: kind === "components" ? "components.json" : "component-sets.json",
-    file: `${JSON.stringify({ [key]: manifests }, null, 2)}\n`,
+    file: `${JSON.stringify({ [kind]: manifests }, null, 2)}\n`,
     count: manifests.length,
-    variableCount
-  });
+    variableCount: new Set(manifests.flatMap((manifest) => manifest.variables)).size
+  };
 }
 
 async function createComponentManifestFor(component: ComponentNode | ComponentSetNode) {
