@@ -138,7 +138,8 @@ describe("components view", () => {
     ui.receive({ type: "page-components", requestId: ui.lastSent("ui-ready")?.requestId, page: "Page 1", manifests: [manifest] });
 
     expect(ui.$("componentsEmpty").hidden).toBe(true);
-    expect(ui.$("componentsDownloads").textContent).toBe("2개 Component Set · 5개 Variable 다운로드");
+    expect(ui.$("componentsDownloads").textContent).toBe("component-sets.json");
+    expect(ui.$("componentsDownloads").querySelector("button")?.title).toBe("2개 Component Set · 5개 Variable 다운로드");
     expect(ui.$("componentsCount").textContent).toBe("2");
     expect(ui.$("componentsBoard").hidden).toBe(false);
     expect([...ui.$("componentsBoard").querySelectorAll(".token")].map((card) => card.textContent)).toEqual(["Button4 variants", "Alert3 variants"]);

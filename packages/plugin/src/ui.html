@@ -143,6 +143,7 @@
     details.help details p { margin-top: 6px; color: var(--text-2); }
 
     /* Selection & Team */
+    .topbar-actions { display: flex; gap: 6px; }
     .downloads { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
     .downloads button { justify-content: flex-start; height: 42px; border-radius: 14px; }
     .team { align-items: center; justify-content: center; gap: 18px; }
@@ -333,7 +334,7 @@
     </section>
 
     <section id="view-components" class="view" hidden>
-      <header class="topbar"><h1>Components</h1></header>
+      <header class="topbar"><h1>Components</h1><span class="spacer"></span><div id="componentsDownloads" class="topbar-actions"></div></header>
       <div class="body">
         <p class="muted">현재 페이지의 Component와 Component Set을 선택 없이 자동으로 분석합니다.</p>
         <div id="componentsEmpty" class="state" role="status">
@@ -342,7 +343,6 @@
           <p id="componentsEmptyText">잠시만 기다려 주세요.</p>
         </div>
         <section id="componentsBoard" class="board" aria-label="컴포넌트 보드" hidden></section>
-        <div id="componentsDownloads" class="downloads"></div>
         <div id="componentsErrors" class="downloads"></div>
       </div>
     </section>
@@ -626,6 +626,16 @@
       $("componentsBoard").hidden = false;
     }
 
+    function createComponentsDownloadButton(manifest) {
+      const kind = componentKinds[manifest.kind];
+      const button = createDownloadButton("", () => triggerDownload(new Blob([manifest.file], { type: "application/json" }), manifest.filename));
+      button.className = "mono";
+      button.title = `${manifest.count}개 ${kind.label} · ${manifest.variableCount}개 Variable 다운로드`;
+      button.innerHTML = `<span class="dot" style="background: ${kind.dot}"></span>`;
+      button.append(manifest.filename);
+      return button;
+    }
+
     function createComponentCard({ component, variables }, kind, index) {
       const card = document.createElement("button");
       const mark = document.createElement("span");
@@ -808,7 +818,7 @@
       }
       if (!message.manifests.length) return setComponentsState("none", message.page);
       $("componentsEmpty").hidden = true;
-      $("componentsDownloads").replaceChildren(...message.manifests.map(createManifestDownloadButton));
+      $("componentsDownloads").replaceChildren(...message.manifests.map(createComponentsDownloadButton));
       showComponentsBoard(message.manifests);
       $("componentsCount").textContent = String(message.manifests.reduce((count, manifest) => count + manifest.count, 0));
     }
