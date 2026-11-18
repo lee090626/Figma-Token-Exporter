@@ -119,3 +119,40 @@ describe("plugin UI", () => {
     expect(ui.$("selectionEmptyTitle").textContent).toBe("선택한 항목이 없어요");
   });
 });
+
+describe("components view", () => {
+  const manifest = { kind: "componentSets", filename: "component-sets.json", file: "{}\n", count: 2, variableCount: 5 };
+
+  it("shows page components on open without a selection", () => {
+    const ui = openUi();
+    expect(ui.$("componentsEmptyTitle").textContent).toBe("컴포넌트를 분석하고 있어요");
+    ui.receive({ type: "page-components", requestId: ui.lastSent("ui-ready")?.requestId, page: "Page 1", manifests: [manifest] });
+
+    expect(ui.$("componentsEmpty").hidden).toBe(true);
+    expect(ui.$("componentsDownloads").textContent).toBe("2개 Component Set · 5개 Variable 다운로드");
+    expect(ui.$("componentsCount").textContent).toBe("2");
+  });
+
+  it("re-reads on page change and shows the empty and error states", () => {
+    const ui = openUi();
+    ui.receive({ type: "page-changed" });
+    const read = ui.lastSent("read-components");
+    expect(read?.requestId).toBeGreaterThan(0);
+
+    ui.receive({ type: "page-components", requestId: read?.requestId, page: "Icons", manifests: [] });
+    expect(ui.$("componentsEmptyTitle").textContent).toBe("이 페이지에 컴포넌트가 없어요");
+    expect(ui.$("componentsEmptyText").textContent).toContain("\"Icons\" 페이지에");
+
+    ui.receive({ type: "page-components-error", requestId: read?.requestId, message: "boom" });
+    expect(ui.$("componentsEmptyTitle").textContent).toBe("컴포넌트를 분석하지 못했어요");
+    expect(ui.$("componentsErrors").textContent).toContain("컴포넌트 분석 결과를 만들지 못했습니다");
+  });
+
+  it("ignores components replies for an older page", () => {
+    const ui = openUi();
+    const stale = ui.lastSent("ui-ready")?.requestId;
+    ui.receive({ type: "page-changed" });
+    ui.receive({ type: "page-components", requestId: stale, page: "Old", manifests: [manifest] });
+    expect(ui.$("componentsDownloads").children.length).toBe(0);
+  });
+});

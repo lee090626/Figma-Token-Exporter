@@ -167,6 +167,7 @@
   <nav class="nav" aria-label="플러그인 메뉴">
     <div class="brand hide-sm"><span class="logo"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4L1.5 8 5 12M11 4l3.5 4-3.5 4"/></svg></span>Token Exporter</div>
     <button type="button" data-view="tokens" aria-current="page"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="2"/><rect x="9" y="2" width="5" height="5" rx="2"/><rect x="2" y="9" width="5" height="5" rx="2"/><rect x="9" y="9" width="5" height="5" rx="2"/></svg>Tokens<span id="navCount" class="end mono">–</span></button>
+    <button type="button" data-view="components"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 1.5L11 4.5 8 7.5 5 4.5zM8 8.5L11 11.5 8 14.5 5 11.5zM4 5L7 8 4 11 1 8zM12 5L15 8 12 11 9 8z"/></svg>Components<span id="componentsCount" class="end mono"></span></button>
     <button type="button" data-view="check"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8l6.5 11.7H1.5z"/><path d="M8 6.5v3M8 11.6v.1"/></svg>점검<span id="checkCount" class="end mono"></span></button>
     <button type="button" data-view="changes"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 109.6-3.6M12.5 2v2.8H9.7"/><path d="M8 5v3l2 1.5"/></svg>변경 내역<span id="changesCount" class="end mono"></span></button>
     <button type="button" data-view="connect"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 014.5 9l1-1"/></svg>Connect<span class="end"><span id="doneCount" class="mono">1/3</span><span id="navBlob" class="blob" aria-hidden="true"></span></span></button>
@@ -330,14 +331,28 @@
       </div>
     </section>
 
+    <section id="view-components" class="view" hidden>
+      <header class="topbar"><h1>Components</h1></header>
+      <div class="body">
+        <p class="muted">현재 페이지의 Component와 Component Set을 선택 없이 자동으로 분석합니다.</p>
+        <div id="componentsEmpty" class="state" role="status">
+          <span class="blob sleepy" style="width: 56px; height: 50px" aria-hidden="true"></span>
+          <strong id="componentsEmptyTitle">컴포넌트를 분석하고 있어요</strong>
+          <p id="componentsEmptyText">잠시만 기다려 주세요.</p>
+        </div>
+        <div id="componentsDownloads" class="downloads"></div>
+        <div id="componentsErrors" class="downloads"></div>
+      </div>
+    </section>
+
     <section id="view-selection" class="view" hidden>
       <header class="topbar"><h1>선택 분석</h1></header>
       <div class="body">
-        <p class="muted">선택한 Frame, Component, Component Set별 결과입니다.</p>
+        <p class="muted">선택한 Frame별 결과입니다.</p>
         <div id="selectionEmpty" class="state">
           <span class="blob sleepy" style="width: 56px; height: 50px" aria-hidden="true"></span>
           <strong id="selectionEmptyTitle">선택한 항목이 없어요</strong>
-          <p id="selectionEmptyText">캔버스에서 Frame, Component, Component Set을 선택하면 쓰인 토큰을 바로 분석해 드려요.</p>
+          <p id="selectionEmptyText">캔버스에서 Frame을 선택하면 쓰인 토큰을 바로 분석해 드려요.</p>
         </div>
         <div id="selectionManifestDownloads" class="downloads"></div>
         <div id="selectionErrors" class="downloads"></div>
@@ -375,9 +390,10 @@
     // phase: loading → ready ⇄ refreshing; any → error; error → loading (retry). Only setPhase() changes it.
     // Replies with an old requestId are dropped.
     let phase = "loading";
-    // requestId guards exports/error replies; selectionId guards manifest replies. Both come from one counter.
+    // requestId guards exports/error replies; selectionId guards manifest replies; componentsId guards page-components replies. All come from one counter.
     let requestId = 0;
     let selectionId = 0;
+    let componentsId = 0;
     let lastId = 0;
     let selectionTimer;
     let progressTouched = false;
@@ -417,9 +433,12 @@
 
     function handlePluginMessage(message) {
       if (message.type === "selection-changed") return readSelectionSoon();
+      if (message.type === "page-changed") return readComponents();
       if (message.type === "baseline-saved") return baselineSaved(message);
       const isManifest = message.type === "manifest" || message.type === "manifest-error" || message.type === "manifest-none";
-      if (message.type !== "progress" && message.requestId !== (isManifest ? selectionId : requestId)) return;
+      const isComponents = message.type === "page-components" || message.type === "page-components-error";
+      if (message.type !== "progress" && message.requestId !== (isManifest ? selectionId : isComponents ? componentsId : requestId)) return;
+      if (isComponents) return showPageComponents(message);
       if (message.type === "error") return showExportError(message.message);
       if (message.type === "progress") return applyProgress(message.progress);
       if (message.type === "manifest-none") return setSelectionEmpty(message.selected ? "unsupported" : "none");
@@ -433,7 +452,7 @@
       $("formatsMenu").hidden = true;
       $("formatsToggle").setAttribute("aria-expanded", "false");
       if (phase !== "ready" && phase !== "refreshing") return;
-      for (const name of ["tokens", "check", "changes", "connect", "selection", "team"]) $(`view-${name}`).hidden = name !== view;
+      for (const name of ["tokens", "components", "check", "changes", "connect", "selection", "team"]) $(`view-${name}`).hidden = name !== view;
     }
 
     // Owns the phase-level chrome; show() reveals the current view once phase is ready/refreshing.
@@ -686,12 +705,50 @@
     function setSelectionEmpty(state) {
       const [title, text] = {
         analyzing: ["선택한 항목을 분석하고 있어요", "잠시만 기다려 주세요."],
-        none: ["선택한 항목이 없어요", "캔버스에서 Frame, Component, Component Set을 선택하면 쓰인 토큰을 바로 분석해 드려요."],
-        unsupported: ["분석할 수 없는 항목이에요", "Frame, Component, Component Set만 분석해요. Text, Group, Instance는 감싸는 Frame을 선택해 주세요."]
+        none: ["선택한 항목이 없어요", "캔버스에서 Frame을 선택하면 쓰인 토큰을 바로 분석해 드려요."],
+        unsupported: ["분석할 수 없는 항목이에요", "Frame만 분석해요. Component와 Component Set은 Components 메뉴에서 자동으로 보여요. Text, Group, Instance는 감싸는 Frame을 선택해 주세요."]
       }[state];
       $("selectionEmptyTitle").textContent = title;
       $("selectionEmptyText").textContent = text;
       $("selectionEmpty").hidden = false;
+    }
+
+    // Components view: analyzing → results | none | error. The plugin sends it on open, refresh and page change.
+    function setComponentsState(state, page) {
+      const [title, text] = {
+        analyzing: ["컴포넌트를 분석하고 있어요", "잠시만 기다려 주세요."],
+        none: ["이 페이지에 컴포넌트가 없어요", `${page ? `"${page}" 페이지에` : "현재 페이지에"} Component나 Component Set이 없어요. 다른 페이지로 이동하면 자동으로 다시 분석해요.`],
+        error: ["컴포넌트를 분석하지 못했어요", "잠시 후 새로고침을 눌러 다시 시도하세요."]
+      }[state];
+      $("componentsDownloads").replaceChildren();
+      $("componentsErrors").replaceChildren();
+      $("componentsCount").textContent = "";
+      $("componentsEmptyTitle").textContent = title;
+      $("componentsEmptyText").textContent = text;
+      $("componentsEmpty").hidden = false;
+    }
+
+    function readComponents() {
+      componentsId = ++lastId;
+      setComponentsState("analyzing");
+      parent.postMessage({ pluginMessage: { type: "read-components", requestId: componentsId } }, "*");
+    }
+
+    function showPageComponents(message) {
+      if (message.type === "page-components-error") {
+        setComponentsState("error");
+        const error = document.createElement("p");
+        error.className = "error-box";
+        error.setAttribute("role", "alert");
+        error.style.fontFamily = "inherit";
+        error.textContent = friendlyManifestError("component", message.message);
+        $("componentsErrors").append(error);
+        return;
+      }
+      if (!message.manifests.length) return setComponentsState("none", message.page);
+      $("componentsEmpty").hidden = true;
+      $("componentsDownloads").replaceChildren(...message.manifests.map(createManifestDownloadButton));
+      $("componentsCount").textContent = String(message.manifests.reduce((count, manifest) => count + manifest.count, 0));
     }
 
     function readSelectionSoon() {
@@ -837,6 +894,8 @@
       clearSelection();
       requestId = ++lastId;
       selectionId = requestId;
+      componentsId = requestId;
+      setComponentsState("analyzing");
       setPhase(phase === "error" ? "loading" : "refreshing");
       parent.postMessage({ pluginMessage: { type: "refresh", requestId } }, "*");
     };
