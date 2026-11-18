@@ -4,10 +4,14 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome lint packages && depcruise packages --config .dependency-cruiser.cjs"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.6.8",
     "@types/node": "^22.15.0",
+    "dependency-cruiser": "^18.8.0",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }

@@ -91,6 +91,48 @@ const tokenTypeFromCollection = (collection: RecordValue | undefined, resolvedTy
   return undefined;
 };
 
+const parseHexColor = (value: string): ColorValue | undefined => {
+  const match = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(value);
+  if (!match) return undefined;
+  const [r, g, b] = [0, 2, 4].map((offset) => Number.parseInt(match[1].slice(offset, offset + 2), 16));
+  return { r, g, b, a: match[2] ? Number.parseInt(match[2], 16) / 255 : 1 };
+};
+
+/**
+ * Converts the legacy Plugin tokens.json (hex color strings, generic "number" type) into DesignToken[].
+ * Keeps only the first mode seen in each collection, matching the current Plugin export.
+ * Returns undefined when the value is not that format; throws when a number token cannot be classified.
+ */
+export function upgradeLegacyTokens(value: unknown): DesignToken[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const tokens: DesignToken[] = [];
+  // Legacy exports held every mode; the current Plugin exports one mode per collection, so keep the first seen.
+  const modeByCollection = new Map<unknown, unknown>();
+  for (const token of value) {
+    if (!isRecord(token) || typeof token.name !== "string") return undefined;
+    if (!modeByCollection.has(token.collection)) modeByCollection.set(token.collection, token.mode);
+    if (modeByCollection.get(token.collection) !== token.mode) continue;
+    if (isDesignTokenArray([token])) {
+      tokens.push(token as unknown as DesignToken);
+      continue;
+    }
+    const collection = typeof token.collection === "string" ? token.collection : undefined;
+    let type: TokenType | undefined;
+    let tokenValue: DesignToken["value"] | undefined;
+    if (token.type === "color" && typeof token.value === "string") {
+      type = "color";
+      tokenValue = parseHexColor(token.value);
+    } else if (token.type === "number" && isFiniteNumber(token.value)) {
+      type = tokenTypeFromName(token.name, "FLOAT") ?? tokenTypeFromCollection(collection ? { name: collection } : undefined, "FLOAT");
+      if (!type) throw new Error(`Cannot classify legacy number token: ${token.name}`);
+      tokenValue = token.value;
+    }
+    if (!type || tokenValue === undefined || !isDesignTokenArray([{ ...token, type, value: tokenValue }])) return undefined;
+    tokens.push({ ...(token as unknown as DesignToken), type, value: tokenValue });
+  }
+  return tokens;
+}
+
 const to255 = (value: number) => Math.round(value <= 1 ? value * 255 : value);
 const clamp = (min: number, value: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -291,7 +333,8 @@ function assignNestedValue(root: RecordValue, path: string[], value: unknown, er
       return;
     }
     if (Object.hasOwn(cursor, part) && !isRecord(cursor[part])) throw new Error(`${errorPrefix}: ${path.join(".")}`);
-    cursor = cursor[part] as RecordValue ?? (cursor[part] = createRecord());
+    if (!Object.hasOwn(cursor, part)) cursor[part] = createRecord();
+    cursor = cursor[part] as RecordValue;
   });
 }
 

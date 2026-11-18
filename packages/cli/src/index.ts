@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import "dotenv/config";
 import { createRequire } from "node:module";
 import { Command, InvalidArgumentError } from "commander";
 import { runDefaultWorkflow } from "./runDefaultWorkflow.js";

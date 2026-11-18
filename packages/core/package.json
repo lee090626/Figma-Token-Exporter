@@ -19,7 +19,8 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
   },
   "devDependencies": {
     "tsup": "^8.5.0"

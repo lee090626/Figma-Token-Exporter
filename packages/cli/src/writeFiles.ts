@@ -28,8 +28,10 @@ export async function writeFilesAtomically(files: OutputFile[], errorFor: (path:
     }
     for (const file of staged) {
       currentPath = file.path;
-      if (file.existed) await rename(file.path, file.backupPath!);
-      await rename(file.stagedPath!, file.path);
+      const { stagedPath, backupPath } = file;
+      if (!stagedPath || !backupPath) throw errorFor(file.path);
+      if (file.existed) await rename(file.path, backupPath);
+      await rename(stagedPath, file.path);
       file.committed = true;
     }
   } catch {

@@ -63,7 +63,7 @@ npx figma-token --check --out ./src/tokens
 
 ## Enterprise 사용자: REST API
 
-`.env.example`을 `.env`로 복사하고 `FIGMA_TOKEN`, `FIGMA_FILE_KEY`를 설정합니다. 이 경로는 숨김 고급 `sync` 명령으로 유지됩니다. CLI 옵션은 환경변수보다 우선합니다.
+`FIGMA_TOKEN`, `FIGMA_FILE_KEY`를 셸 환경변수로 설정하거나 `--figma-token`, `--file-key` 옵션으로 넘깁니다. CLI는 `.env` 파일을 읽지 않습니다. 이 경로는 숨김 고급 `sync` 명령으로 유지됩니다. CLI 옵션은 환경변수보다 우선합니다.
 
 ```bash
 npx figma-token sync --format tokens-json --output ./tokens.json
