@@ -12,6 +12,8 @@
   },
   "devDependencies": {
     "@figma/plugin-typings": "^1.117.0",
+    "@types/jsdom": "^30.0.0",
+    "jsdom": "^31.0.1",
     "tsup": "^8.5.0"
   }
 }
