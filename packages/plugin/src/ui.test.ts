@@ -121,7 +121,16 @@ describe("plugin UI", () => {
 });
 
 describe("components view", () => {
-  const manifest = { kind: "componentSets", filename: "component-sets.json", file: "{}\n", count: 2, variableCount: 5 };
+  const manifest = {
+    kind: "componentSets",
+    filename: "component-sets.json",
+    file: JSON.stringify({ componentSets: [
+      { component: { name: "Button", variants: [{}, {}, {}, {}] }, variables: ["a", "b", "c"] },
+      { component: { name: "Alert", variants: [{}, {}, {}] }, variables: ["d", "e"] }
+    ] }),
+    count: 2,
+    variableCount: 5
+  };
 
   it("shows page components on open without a selection", () => {
     const ui = openUi();
@@ -131,6 +140,9 @@ describe("components view", () => {
     expect(ui.$("componentsEmpty").hidden).toBe(true);
     expect(ui.$("componentsDownloads").textContent).toBe("2개 Component Set · 5개 Variable 다운로드");
     expect(ui.$("componentsCount").textContent).toBe("2");
+    expect(ui.$("componentsBoard").hidden).toBe(false);
+    expect([...ui.$("componentsBoard").querySelectorAll(".token")].map((card) => card.textContent)).toEqual(["Button4 variants", "Alert3 variants"]);
+    expect(ui.$("componentsBoard").querySelector(".column-head")?.textContent).toBe("Component Set2");
   });
 
   it("re-reads on page change and shows the empty and error states", () => {
@@ -141,6 +153,7 @@ describe("components view", () => {
 
     ui.receive({ type: "page-components", requestId: read?.requestId, page: "Icons", manifests: [] });
     expect(ui.$("componentsEmptyTitle").textContent).toBe("이 페이지에 컴포넌트가 없어요");
+    expect(ui.$("componentsBoard").hidden).toBe(true);
     expect(ui.$("componentsEmptyText").textContent).toContain("\"Icons\" 페이지에");
 
     ui.receive({ type: "page-components-error", requestId: read?.requestId, message: "boom" });

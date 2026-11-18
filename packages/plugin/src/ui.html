@@ -87,6 +87,7 @@
     .menu button { justify-content: flex-start; width: 100%; border: 0; background: transparent; }
     .board { display: grid; flex: 1; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); align-content: start; align-items: stretch; gap: 16px 8px; min-height: 120px; padding: 12px; overflow: auto; border: 1px solid var(--line); border-radius: 18px; }
     .column { min-width: 0; }
+    #componentsBoard { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
     .column-head { position: sticky; top: -12px; z-index: 1; background: var(--bg); display: flex; align-items: center; gap: 6px; padding: 12px 2px 8px; margin: -12px 0 8px; border-bottom: 1px solid var(--line); font-weight: 600; }
     .column-head .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
@@ -340,6 +341,7 @@
           <strong id="componentsEmptyTitle">컴포넌트를 분석하고 있어요</strong>
           <p id="componentsEmptyText">잠시만 기다려 주세요.</p>
         </div>
+        <section id="componentsBoard" class="board" aria-label="컴포넌트 보드" hidden></section>
         <div id="componentsDownloads" class="downloads"></div>
         <div id="componentsErrors" class="downloads"></div>
       </div>
@@ -575,6 +577,12 @@
       label.textContent = name.includes("/") ? name.slice(name.indexOf("/") + 1) : name;
       detail.className = "value";
       detail.textContent = valueText;
+      copyNameOnClick(card, detail, name, valueText);
+      card.append(mark, label, detail);
+      return card;
+    }
+
+    function copyNameOnClick(card, detail, name, valueText) {
       card.onclick = () => {
         if (!copyText(name)) return flash("복사하지 못했어요");
         card.classList.add("copied");
@@ -585,6 +593,57 @@
           detail.textContent = valueText;
         }, 1200);
       };
+    }
+
+    const componentKinds = {
+      components: { label: "Component", dot: "#c58cff", mood: "happy" },
+      componentSets: { label: "Component Set", dot: "#6ba8ff", mood: "" }
+    };
+
+    function showComponentsBoard(manifests) {
+      const columns = manifests.map((manifest) => {
+        const kind = componentKinds[manifest.kind];
+        let items = [];
+        try {
+          items = JSON.parse(manifest.file)[manifest.kind] || [];
+        } catch {
+          items = [];
+        }
+        const column = document.createElement("div");
+        const head = document.createElement("div");
+        const body = document.createElement("div");
+        column.className = "column";
+        head.className = "column-head";
+        head.innerHTML = `<span class="dot" style="background: ${kind.dot}"></span><span class="name"></span><span class="mono muted" style="font-weight: 400"></span>`;
+        head.children[1].textContent = kind.label;
+        head.children[2].textContent = items.length;
+        body.className = "column-body";
+        body.append(...items.map((item, index) => createComponentCard(item, kind, index)));
+        column.append(head, body);
+        return column;
+      });
+      $("componentsBoard").replaceChildren(...columns);
+      $("componentsBoard").hidden = false;
+    }
+
+    function createComponentCard({ component, variables }, kind, index) {
+      const card = document.createElement("button");
+      const mark = document.createElement("span");
+      const label = document.createElement("span");
+      const detail = document.createElement("span");
+      const valueText = component.variants.length ? `${component.variants.length} variants` : `${variables.length} vars`;
+      card.type = "button";
+      card.className = "token";
+      card.title = `${component.name} · ${variables.length}개 Variable · 이름 복사`;
+      mark.setAttribute("aria-hidden", "true");
+      mark.className = `blob ${kind.mood}`.trim();
+      mark.style.background = kind.dot;
+      mark.style.borderRadius = blobShapes[index % blobShapes.length];
+      label.className = "label";
+      label.textContent = component.name;
+      detail.className = "value";
+      detail.textContent = valueText;
+      copyNameOnClick(card, detail, component.name, valueText);
       card.append(mark, label, detail);
       return card;
     }
@@ -720,6 +779,8 @@
         none: ["이 페이지에 컴포넌트가 없어요", `${page ? `"${page}" 페이지에` : "현재 페이지에"} Component나 Component Set이 없어요. 다른 페이지로 이동하면 자동으로 다시 분석해요.`],
         error: ["컴포넌트를 분석하지 못했어요", "잠시 후 새로고침을 눌러 다시 시도하세요."]
       }[state];
+      $("componentsBoard").replaceChildren();
+      $("componentsBoard").hidden = true;
       $("componentsDownloads").replaceChildren();
       $("componentsErrors").replaceChildren();
       $("componentsCount").textContent = "";
@@ -748,6 +809,7 @@
       if (!message.manifests.length) return setComponentsState("none", message.page);
       $("componentsEmpty").hidden = true;
       $("componentsDownloads").replaceChildren(...message.manifests.map(createManifestDownloadButton));
+      showComponentsBoard(message.manifests);
       $("componentsCount").textContent = String(message.manifests.reduce((count, manifest) => count + manifest.count, 0));
     }
 
