@@ -155,8 +155,9 @@
 
     .toast { position: absolute; left: 50%; bottom: 16px; z-index: 6; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; color: var(--toast-text); background: var(--toast-bg); font-weight: 500; box-shadow: 0 8px 22px rgba(26, 24, 20, 0.25); transform: translateX(-50%); white-space: nowrap; }
     .toast .blob { width: 18px; height: 17px; background: var(--green); animation-delay: .12s; }
-    .resize-handle { position: fixed; right: 0; bottom: 0; z-index: 7; width: 14px; height: 14px; color: var(--text-2); cursor: ew-resize; touch-action: none; }
-    .resize-handle.top-left { top: 0; left: 0; right: auto; bottom: auto; }
+    /* Invisible full-height strips on the left and right edges; dragging either changes only the width. */
+    .resize-handle { position: fixed; top: 0; bottom: 0; right: 0; z-index: 7; width: 6px; cursor: ew-resize; touch-action: none; }
+    .resize-handle.top-left { left: 0; right: auto; }
 
     @media (max-width: 600px) {
       body { flex-direction: column; }
@@ -385,8 +386,8 @@
   </main>
 
   <div id="toast" class="toast mal-pop" role="status" hidden><span class="blob happy mal-hop" aria-hidden="true"></span><span id="toastText"></span></div>
-  <svg id="resizeHandle" class="resize-handle" viewBox="0 0 14 14" aria-hidden="true"><path d="M13 5L5 13M13 9L9 13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-  <svg id="resizeHandleTopLeft" class="resize-handle top-left" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 9L9 1M1 5L5 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+  <div id="resizeHandle" class="resize-handle" aria-hidden="true"></div>
+  <div id="resizeHandleTopLeft" class="resize-handle top-left" aria-hidden="true"></div>
 
   <script>
     let files;
