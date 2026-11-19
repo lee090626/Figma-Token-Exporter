@@ -172,7 +172,7 @@ describe("components view", () => {
 });
 
 describe("resize handles", () => {
-  it("top-left handle grows the window as the pointer moves up and left", () => {
+  it("left handle grows only the width as the pointer moves left", () => {
     const ui = openUi();
     const handle = ui.$("resizeHandleTopLeft") as unknown as HTMLElement & { setPointerCapture: () => void };
     handle.setPointerCapture = () => undefined;
@@ -182,6 +182,6 @@ describe("resize handles", () => {
 
     pointer("pointerdown", 500, 500);
     (handle as unknown as { onpointermove: (event: MouseEvent) => void }).onpointermove(new ui.window.MouseEvent("pointermove", { screenX: 450, screenY: 470 }));
-    expect(ui.lastSent("user-resize")).toEqual({ type: "user-resize", width: width + 50, height: height + 30, done: false, corner: "top-left", from: { width, height } });
+    expect(ui.lastSent("user-resize")).toEqual({ type: "user-resize", width: width + 50, height, done: false, corner: "top-left", from: { width, height } });
   });
 });

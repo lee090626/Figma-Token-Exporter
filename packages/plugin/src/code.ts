@@ -10,10 +10,12 @@ const PROGRESS_KEY = "connectProgress";
 // Stored on the document so everyone editing the file shares the same baseline.
 const BASELINE_KEY = "tokenBaseline";
 
-figma.showUI(__html__, { width: 880, height: 640, themeColors: true });
+// Height follows the visible canvas; only the width is user-resizable (and remembered).
+const uiHeight = () => Math.max(320, Math.round(figma.viewport.bounds.height * figma.viewport.zoom));
+figma.showUI(__html__, { width: 880, height: uiHeight(), themeColors: true });
 figma.clientStorage.getAsync(UI_SIZE_KEY).then((size) => {
-  if (typeof size?.width !== "number" || typeof size?.height !== "number") return;
-  figma.ui.resize(clamp(size.width, 480, 1600), clamp(size.height, 320, 1200));
+  if (typeof size?.width !== "number") return;
+  figma.ui.resize(clamp(size.width, 480, 1600), uiHeight());
 }).catch(() => undefined);
 
 // UI → plugin messages. ui.html mirrors this list; requestId is echoed so the UI can drop stale replies.
@@ -36,16 +38,16 @@ let topLeftOrigin: { x: number; y: number; width: number; height: number } | nul
 
 figma.ui.onmessage = (message: UiMessage) => {
   if (message.type === "user-resize") {
-    const size = { width: clamp(message.width, 480, 1600), height: clamp(message.height, 320, 1200) };
+    const size = { width: clamp(message.width, 480, 1600), height: uiHeight() };
     figma.ui.resize(size.width, size.height);
-    // Top-left drag: keep the bottom-right corner where it was by moving the window as it grows.
+    // Left-edge drag: keep the right edge where it was by moving the window as it grows.
     if (message.corner === "top-left" && message.from) {
       topLeftOrigin ??= { ...figma.ui.getPosition().windowSpace, ...message.from };
-      figma.ui.reposition(topLeftOrigin.x + topLeftOrigin.width - size.width, topLeftOrigin.y + topLeftOrigin.height - size.height);
+      figma.ui.reposition(topLeftOrigin.x + topLeftOrigin.width - size.width, topLeftOrigin.y);
     }
     if (message.done) {
       topLeftOrigin = null;
-      figma.clientStorage.setAsync(UI_SIZE_KEY, size).catch(() => undefined);
+      figma.clientStorage.setAsync(UI_SIZE_KEY, { width: size.width }).catch(() => undefined);
     }
     return;
   }
