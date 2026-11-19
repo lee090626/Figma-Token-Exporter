@@ -170,18 +170,3 @@ describe("components view", () => {
     expect(ui.$("componentsDownloads").children.length).toBe(0);
   });
 });
-
-describe("resize handles", () => {
-  it("top-left handle grows the window as the pointer moves up and left", () => {
-    const ui = openUi();
-    const handle = ui.$("resizeHandleTopLeft") as unknown as HTMLElement & { setPointerCapture: () => void };
-    handle.setPointerCapture = () => undefined;
-    const pointer = (type: string, screenX: number, screenY: number) =>
-      handle.dispatchEvent(new ui.window.MouseEvent(type, { screenX, screenY, bubbles: true }));
-    const { innerWidth: width, innerHeight: height } = ui.window;
-
-    pointer("pointerdown", 500, 500);
-    (handle as unknown as { onpointermove: (event: MouseEvent) => void }).onpointermove(new ui.window.MouseEvent("pointermove", { screenX: 450, screenY: 470 }));
-    expect(ui.lastSent("user-resize")).toEqual({ type: "user-resize", width: width + 50, height: height + 30, done: false, corner: "top-left", from: { width, height } });
-  });
-});

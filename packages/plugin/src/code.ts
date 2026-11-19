@@ -5,16 +5,12 @@ import { createComponentManifest, createFrameManifest, frameManifestFiles, varia
 import { createExports } from "./exportVariables.js";
 
 const WAITLIST_URL = "https://github.com/lee090626/Figma-Token-Exporter/issues/new?template=team-waitlist.yml";
-const UI_SIZE_KEY = "uiSize";
 const PROGRESS_KEY = "connectProgress";
 // Stored on the document so everyone editing the file shares the same baseline.
 const BASELINE_KEY = "tokenBaseline";
 
-figma.showUI(__html__, { width: 880, height: 640, themeColors: true });
-figma.clientStorage.getAsync(UI_SIZE_KEY).then((size) => {
-  if (typeof size?.width !== "number" || typeof size?.height !== "number") return;
-  figma.ui.resize(clamp(size.width, 480, 1600), clamp(size.height, 320, 1200));
-}).catch(() => undefined);
+// Fixed size: width 880, height matches the visible canvas.
+figma.showUI(__html__, { width: 880, height: Math.max(320, Math.round(figma.viewport.bounds.height * figma.viewport.zoom)), themeColors: true });
 
 // UI → plugin messages. ui.html mirrors this list; requestId is echoed so the UI can drop stale replies.
 type UiMessage =
@@ -22,7 +18,6 @@ type UiMessage =
   | { type: "refresh"; requestId?: number }
   | { type: "read-selection"; requestId?: number }
   | { type: "read-components"; requestId?: number }
-  | { type: "user-resize"; width: number; height: number; done: boolean; corner?: "top-left"; from?: { width: number; height: number } }
   | { type: "save-progress"; progress?: { step2?: boolean; step3?: boolean } }
   | { type: "open-waitlist" }
   | { type: "save-baseline"; tokens: string; explicit?: boolean };
@@ -32,23 +27,7 @@ type UiMessage =
 figma.on("selectionchange", () => figma.ui.postMessage({ type: "selection-changed" }));
 figma.on("currentpagechange", () => figma.ui.postMessage({ type: "page-changed" }));
 
-let topLeftOrigin: { x: number; y: number; width: number; height: number } | null = null;
-
 figma.ui.onmessage = (message: UiMessage) => {
-  if (message.type === "user-resize") {
-    const size = { width: clamp(message.width, 480, 1600), height: clamp(message.height, 320, 1200) };
-    figma.ui.resize(size.width, size.height);
-    // Top-left drag: keep the bottom-right corner where it was by moving the window as it grows.
-    if (message.corner === "top-left" && message.from) {
-      topLeftOrigin ??= { ...figma.ui.getPosition().windowSpace, ...message.from };
-      figma.ui.reposition(topLeftOrigin.x + topLeftOrigin.width - size.width, topLeftOrigin.y + topLeftOrigin.height - size.height);
-    }
-    if (message.done) {
-      topLeftOrigin = null;
-      figma.clientStorage.setAsync(UI_SIZE_KEY, size).catch(() => undefined);
-    }
-    return;
-  }
   if (message.type === "open-waitlist") {
     figma.openExternal(WAITLIST_URL);
     return;
@@ -105,10 +84,6 @@ function saveBaseline(tokensJson: string) {
     // View-only files cannot store plugin data.
     return { ok: false };
   }
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, Math.round(value)));
 }
 
 function sendExportError(error: unknown, requestId?: number) {
