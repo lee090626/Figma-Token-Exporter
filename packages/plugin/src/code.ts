@@ -42,8 +42,9 @@ figma.ui.onmessage = (message: UiMessage) => {
     figma.ui.resize(size.width, size.height);
     // Left-edge drag: keep the right edge where it was by moving the window as it grows.
     if (message.corner === "top-left" && message.from) {
-      topLeftOrigin ??= { ...figma.ui.getPosition().windowSpace, ...message.from };
-      figma.ui.reposition(topLeftOrigin.x + topLeftOrigin.width - size.width, topLeftOrigin.y);
+      // reposition() takes canvas coordinates, so convert the pixel width change by the zoom.
+      topLeftOrigin ??= { ...figma.ui.getPosition().canvasSpace, ...message.from };
+      figma.ui.reposition(topLeftOrigin.x + (topLeftOrigin.width - size.width) / figma.viewport.zoom, topLeftOrigin.y);
     }
     if (message.done) {
       topLeftOrigin = null;
